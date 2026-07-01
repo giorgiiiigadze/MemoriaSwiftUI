@@ -6,12 +6,32 @@
 //
 
 import SwiftUI
+import UIKit
 
 @main
 struct MemoriaSwiftUIApp: App {
+    init() {
+        Self.configureTabBarAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .preferredColorScheme(.dark)
         }
+    }
+
+    /// Forces tab bar icons/labels white in both selected and unselected states.
+    /// Only touches per-state colors — no background/blur configuration is set, so the
+    /// system's automatic Liquid Glass tab bar material on iOS 26 is left untouched.
+    private static func configureTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.stackedLayoutAppearance.normal.iconColor = .white
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.stackedLayoutAppearance.selected.iconColor = .white
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.white]
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
