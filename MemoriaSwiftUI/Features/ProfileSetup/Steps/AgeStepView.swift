@@ -35,7 +35,7 @@ struct AgeStepView: View {
 
             ProfileSetupContinueButton(action: submit)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
         .onAppear {
             if let age = store.age {

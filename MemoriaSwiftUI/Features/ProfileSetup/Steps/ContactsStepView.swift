@@ -36,7 +36,7 @@ struct ContactsStepView: View {
 
             ProfileSetupContinueButton(action: onContinue)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 

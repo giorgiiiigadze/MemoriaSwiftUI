@@ -18,12 +18,14 @@ struct ProfileSetupContinueButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.sm)
+            // 16pt top+bottom → ~51pt tall, matching BeReal's primary CTA.
+            .padding(.vertical, Spacing.lg)
         }
         .foregroundStyle(Colors.ink)
         .background(
+            // 14pt — BeReal's rounded-rectangle CTA radius (between Radii.md/lg).
             isEnabled ? Colors.white : Colors.white.opacity(0.4),
-            in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
         .disabled(!isEnabled || isLoading)
     }

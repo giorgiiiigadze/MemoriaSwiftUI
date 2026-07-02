@@ -47,7 +47,7 @@ struct PhoneStepView: View {
                 .disabled(isSubmitting)
             }
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 

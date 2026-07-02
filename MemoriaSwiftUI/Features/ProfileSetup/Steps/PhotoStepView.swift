@@ -41,7 +41,7 @@ struct PhotoStepView: View {
 
             ProfileSetupContinueButton(isLoading: isUploading, action: onContinue)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 

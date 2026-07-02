@@ -70,7 +70,7 @@ struct UsernameStepView: View {
 
             ProfileSetupContinueButton(isEnabled: availability == .available, action: onContinue)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 }

@@ -27,7 +27,7 @@ struct NameStepView: View {
 
             ProfileSetupContinueButton(isEnabled: isValid, action: onContinue)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 }

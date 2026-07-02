@@ -37,7 +37,7 @@ struct NotificationsStepView: View {
                 .font(Typography.font(.sm, weight: .medium))
                 .foregroundStyle(Colors.textTertiary)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
     }
 
