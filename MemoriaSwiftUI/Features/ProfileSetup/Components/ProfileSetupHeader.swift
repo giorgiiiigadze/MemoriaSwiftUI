@@ -28,9 +28,9 @@ struct ProfileSetupHeader: View {
 }
 
 /// Circular back button. On iOS 26 it uses the system `.glass` button style so it gets the
-/// real interactive Liquid Glass press physics (scale, highlight, lensing) rather than a
-/// static glass background painted behind a `.plain` button. Below iOS 26 it falls back to
-/// a material-filled circle with the same chrome border as `GlassCard`'s fallback.
+/// real interactive Liquid Glass press physics (scale, highlight, lensing); the round shape
+/// comes from `.buttonBorderShape(.circle)` so the glass renders/animates as a circle rather
+/// than being hard-clipped. Below iOS 26 it falls back to a material-filled circle.
 private struct GlassHeaderIconButton: View {
     let systemImage: String
     var action: (() -> Void)?
@@ -41,10 +41,9 @@ private struct GlassHeaderIconButton: View {
         } label: {
             Image(systemName: systemImage)
                 .font(Typography.font(.md, weight: .semiBold))
-                .foregroundStyle(Colors.white)
                 .frame(width: 40, height: 40)
         }
-        .glassChromeButton(shape: Circle())
+        .glassChromeButton(.circle, fallbackShape: Circle())
         .opacity(action == nil ? 0 : 1)
         .disabled(action == nil)
     }
@@ -59,26 +58,31 @@ private struct GlassHeaderPillButton: View {
         Button(action: action) {
             Text(title)
                 .font(Typography.font(.sm, weight: .semiBold))
-                .foregroundStyle(Colors.white)
                 .padding(.horizontal, Spacing.md)
                 .frame(height: 40)
         }
-        .glassChromeButton(shape: Capsule())
+        .glassChromeButton(.capsule, fallbackShape: Capsule())
     }
 }
 
 private extension View {
-    /// Applies the native `.glass` button style on iOS 26 (real interactive Liquid Glass),
-    /// clipped to `shape`; falls back to a material fill + chrome border on older OSes.
+    /// Native `.glass` button style on iOS 26, shaped by `borderShape` so the glass itself
+    /// renders and animates in that shape. Below iOS 26, falls back to a material fill +
+    /// chrome border in `fallbackShape`. White foreground either way, for the dark header.
     @ViewBuilder
-    func glassChromeButton(shape: some Shape & InsettableShape) -> some View {
+    func glassChromeButton(
+        _ borderShape: ButtonBorderShape,
+        fallbackShape: some InsettableShape
+    ) -> some View {
         if #available(iOS 26, *) {
             buttonStyle(.glass)
-                .clipShape(shape)
+                .buttonBorderShape(borderShape)
+                .tint(Colors.white)
         } else {
-            buttonStyle(.plain)
-                .background(Colors.glassChromeFallback, in: shape)
-                .overlay { shape.strokeBorder(Colors.glassChromeBorder, lineWidth: 1) }
+            foregroundStyle(Colors.white)
+                .buttonStyle(.plain)
+                .background(Colors.glassChromeFallback, in: fallbackShape)
+                .overlay { fallbackShape.strokeBorder(Colors.glassChromeBorder, lineWidth: 1) }
         }
     }
 }
