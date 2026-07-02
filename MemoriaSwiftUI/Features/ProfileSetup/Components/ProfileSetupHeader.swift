@@ -27,10 +27,12 @@ struct ProfileSetupHeader: View {
     }
 }
 
-/// Circular back button. On iOS 26 it uses the system `.glass` button style so it gets the
-/// real interactive Liquid Glass press physics (scale, highlight, lensing); the round shape
-/// comes from `.buttonBorderShape(.circle)` so the glass renders/animates as a circle rather
-/// than being hard-clipped. Below iOS 26 it falls back to a material-filled circle.
+/// Circular back button, matching BeReal's top-left control. On iOS 26 it uses the system
+/// `.glass` button style at `.controlSize(.large)` — Apple's native glass proportions, the
+/// same sizing BeReal uses — shaped by `.buttonBorderShape(.circle)` so the glass renders
+/// and animates as a circle (never hard-clipped). No fixed frame: the icon's point size plus
+/// the glass style's own padding define the circle. Below iOS 26 it falls back to a
+/// material-filled circle sized to roughly match.
 private struct GlassHeaderIconButton: View {
     let systemImage: String
     var action: (() -> Void)?
@@ -40,16 +42,20 @@ private struct GlassHeaderIconButton: View {
             action?()
         } label: {
             Image(systemName: systemImage)
-                .font(Typography.font(.md, weight: .semiBold))
-                .frame(width: 40, height: 40)
+                .font(.system(size: 18, weight: .semibold))
         }
-        .glassChromeButton(.circle, fallbackShape: Circle())
+        .glassChromeButton(
+            .circle,
+            fallbackShape: Circle(),
+            fallbackInsets: EdgeInsets(top: 15, leading: 15, bottom: 15, trailing: 15)
+        )
         .opacity(action == nil ? 0 : 1)
         .disabled(action == nil)
     }
 }
 
-/// Pill Skip button — same native-glass treatment as the back button.
+/// Pill Skip button, matching BeReal's top-right "Help" control — same native large-glass
+/// treatment as the back button, capsule-shaped.
 private struct GlassHeaderPillButton: View {
     let title: String
     let action: () -> Void
@@ -57,32 +63,39 @@ private struct GlassHeaderPillButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(Typography.font(.sm, weight: .semiBold))
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 40)
+                .font(.system(size: 16, weight: .semibold))
         }
-        .glassChromeButton(.capsule, fallbackShape: Capsule())
+        .glassChromeButton(
+            .capsule,
+            fallbackShape: Capsule(),
+            fallbackInsets: EdgeInsets(top: 12, leading: 22, bottom: 12, trailing: 22)
+        )
     }
 }
 
 private extension View {
-    /// Native `.glass` button style on iOS 26, shaped by `borderShape` so the glass itself
-    /// renders and animates in that shape. Below iOS 26, falls back to a material fill +
-    /// chrome border in `fallbackShape`. White foreground either way, for the dark header.
+    /// Native `.glass` button style on iOS 26 at `.controlSize(.large)` (BeReal-matching
+    /// glass proportions), shaped by `borderShape` so the glass itself renders and animates
+    /// in that shape. Below iOS 26, falls back to a material fill + chrome border in
+    /// `fallbackShape`, padded by `fallbackInsets` to approximate the same size. White
+    /// foreground either way, for the dark header.
     @ViewBuilder
     func glassChromeButton(
         _ borderShape: ButtonBorderShape,
-        fallbackShape: some InsettableShape
+        fallbackShape: some InsettableShape,
+        fallbackInsets: EdgeInsets
     ) -> some View {
         if #available(iOS 26, *) {
             buttonStyle(.glass)
                 .buttonBorderShape(borderShape)
+                .controlSize(.large)
                 .tint(Colors.white)
         } else {
             foregroundStyle(Colors.white)
-                .buttonStyle(.plain)
+                .padding(fallbackInsets)
                 .background(Colors.glassChromeFallback, in: fallbackShape)
                 .overlay { fallbackShape.strokeBorder(Colors.glassChromeBorder, lineWidth: 1) }
+                .contentShape(fallbackShape)
         }
     }
 }
