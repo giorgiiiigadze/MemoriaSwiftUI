@@ -15,7 +15,7 @@ struct SignUpEmailStepView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("What's your email?")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xxl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
@@ -33,7 +33,7 @@ struct SignUpEmailStepView: View {
 
             Spacer()
 
-            ProfileSetupContinueButton(isEnabled: isValid, action: onContinue)
+            ProfileSetupContinueButton(isEnabled: isValid, verticalPadding: Spacing.xl, action: onContinue)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)

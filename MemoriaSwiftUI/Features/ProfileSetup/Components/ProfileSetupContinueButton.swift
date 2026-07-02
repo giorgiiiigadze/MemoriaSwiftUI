@@ -5,6 +5,9 @@ struct ProfileSetupContinueButton: View {
     var title: String = "Continue"
     var isEnabled: Bool = true
     var isLoading: Bool = false
+    // Defaults to 16pt top+bottom → ~51pt tall, matching BeReal's primary CTA (profile setup).
+    // The auth flow overrides this for a slightly taller pill.
+    var verticalPadding: CGFloat = Spacing.lg
     let action: () -> Void
 
     var body: some View {
@@ -18,8 +21,7 @@ struct ProfileSetupContinueButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            // 16pt top+bottom → ~51pt tall, matching BeReal's primary CTA.
-            .padding(.vertical, Spacing.lg)
+            .padding(.vertical, verticalPadding)
         }
         .foregroundStyle(Colors.ink)
         .background(

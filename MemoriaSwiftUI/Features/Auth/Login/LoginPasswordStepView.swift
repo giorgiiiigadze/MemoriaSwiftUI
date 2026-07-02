@@ -18,7 +18,7 @@ struct LoginPasswordStepView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Enter your password")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xxl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
@@ -44,6 +44,7 @@ struct LoginPasswordStepView: View {
                 title: "Log in",
                 isEnabled: canContinue,
                 isLoading: isSubmitting,
+                verticalPadding: Spacing.xl,
                 action: onSubmit
             )
         }

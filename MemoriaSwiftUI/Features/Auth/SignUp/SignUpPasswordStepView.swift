@@ -19,7 +19,7 @@ struct SignUpPasswordStepView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Create a password")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xxl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
@@ -52,6 +52,7 @@ struct SignUpPasswordStepView: View {
                 title: "Create account",
                 isEnabled: isValid,
                 isLoading: isSubmitting,
+                verticalPadding: Spacing.xl,
                 action: onSubmit
             )
         }

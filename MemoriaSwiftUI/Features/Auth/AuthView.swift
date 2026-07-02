@@ -56,12 +56,18 @@ struct AuthView: View {
                     .transition(.opacity)
                 }
             }
+
+            // Presented as a push (slide in from the trailing edge) over the sign-up flow rather
+            // than a bottom sheet, matching the forward navigation feel of the rest of the wizard.
+            if isShowingLogin {
+                LoginView(onDismiss: { isShowingLogin = false })
+                    .transition(.move(edge: .trailing))
+                    .zIndex(1)
+            }
         }
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: step)
-        .fullScreenCover(isPresented: $isShowingLogin) {
-            LoginView(onDismiss: { isShowingLogin = false })
-        }
+        .animation(.easeInOut(duration: 0.3), value: isShowingLogin)
     }
 
     /// Back is only meaningful on the password step (returns to email); the email step is the
