@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import Supabase
 
-enum RootPhase {
+enum RootPhase: Equatable {
     case splash
     case onboarding
     case auth
@@ -40,6 +40,29 @@ final class AppState {
         phase = .auth
     }
 
+    /// Called by `ProfileSetupFlowView` once its confirmation screen's final upsert succeeds.
+    /// No new `authStateChanges` event fires for a Postgrest write, so the wizard hands the
+    /// finished `Profile` back directly instead of waiting on the stream listener.
+    func completeProfileSetup(_ profile: Profile) {
+        self.profile = profile
+        hasSeenOnboarding = true
+        phase = .app
+    }
+
+    /// Called by `AuthView` right after a successful sign-up that returns a session
+    /// immediately (no email confirmation step). Skips straight to `.profileSetup` instead
+    /// of waiting on the `authStateChanges` listener to independently pick up `.signedIn`
+    /// and run `hydrate`'s `profiles` lookup — a fresh sign-up's row (from
+    /// `handle_new_user()`) never has `display_name` set, so that lookup's outcome is
+    /// already known here without the extra network round-trip.
+    ///
+    /// `hydrate` still runs when the listener's own `.signedIn` event arrives moments
+    /// later; it's a harmless, redundant re-confirmation of the same `.profileSetup` phase.
+    func beginProfileSetup(session: Session) {
+        self.session = session
+        phase = .profileSetup
+    }
+
     private func handle(event: AuthChangeEvent, session: Session?) async {
         switch event {
         case .initialSession, .tokenRefreshed:
@@ -64,8 +87,9 @@ final class AppState {
     /// no usable profile means signup never finished.
     ///
     /// On a cold boot this mirrors the RN app's defensive behavior: sign out and send back
-    /// to sign-in. On a live action (`isColdBoot == false`) a missing profile row is expected
-    /// for a brand-new sign-up (the row isn't created until the profile-setup wizard), so it
+    /// to sign-in. On a live action (`isColdBoot == false`) an unusable profile — either no
+    /// row at all, or the bare row `handle_new_user()` inserts synchronously on sign-up
+    /// (username + phone, no display_name) — is expected for a brand-new sign-up, so it
     /// routes into `.profileSetup` instead — signing the user out here would immediately
     /// dead-end a successful sign-up.
     ///
@@ -90,7 +114,14 @@ final class AppState {
                 .value
 
             guard let displayName = profile.displayName, !displayName.isEmpty else {
-                try? await client.auth.signOut()
+                // `handle_new_user()` inserts a bare `profiles` row (username + phone, no
+                // display_name) synchronously on every sign-up, so this — not a missing row —
+                // is what a brand-new signup actually looks like on a live action.
+                if !isColdBoot {
+                    phase = .profileSetup
+                } else {
+                    try? await client.auth.signOut()
+                }
                 return
             }
 

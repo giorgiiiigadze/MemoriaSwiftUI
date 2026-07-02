@@ -2,6 +2,8 @@ import SwiftUI
 import Supabase
 
 struct AuthView: View {
+    @Environment(AppState.self) private var appState
+
     private enum Mode: String, CaseIterable {
         case signIn = "Sign In"
         case signUp = "Sign Up"
@@ -160,8 +162,11 @@ struct AuthView: View {
                 try await authStore.signIn(email: email, password: password)
             case .signUp:
                 let outcome = try await authStore.signUp(email: email, password: password)
-                if outcome == .confirmationRequired {
+                switch outcome {
+                case .confirmationRequired:
                     didRequestConfirmation = true
+                case .signedIn(let session):
+                    appState.beginProfileSetup(session: session)
                 }
             }
         } catch {
@@ -216,4 +221,5 @@ private struct TermsCheckboxRow: View {
 
 #Preview {
     AuthView()
+        .environment(AppState())
 }

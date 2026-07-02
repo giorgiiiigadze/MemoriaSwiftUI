@@ -8,7 +8,7 @@ import Supabase
 /// requires email confirmation, since no session (and so no stream event) exists yet.
 final class AuthStore {
     enum SignUpOutcome {
-        case signedIn
+        case signedIn(Session)
         case confirmationRequired
     }
 
@@ -24,7 +24,10 @@ final class AuthStore {
         let email = Self.normalized(email)
         Self.logCredentialShape(context: "signUp", email: email, password: password)
         let response = try await client.auth.signUp(email: email, password: password)
-        return response.session != nil ? .signedIn : .confirmationRequired
+        if let session = response.session {
+            return .signedIn(session)
+        }
+        return .confirmationRequired
     }
 
     /// Predictive text / autocapitalization can leave a stray leading or trailing space in
