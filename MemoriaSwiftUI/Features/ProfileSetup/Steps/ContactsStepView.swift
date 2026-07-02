@@ -23,7 +23,7 @@ struct ContactsStepView: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("Find friends on Memoria")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             Text("Connect your contacts to find friends already here and invite the rest.")
@@ -52,8 +52,8 @@ struct ContactsStepView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Spacing.sm)
             }
-            .foregroundStyle(Colors.lightBackground)
-            .background(Colors.charcoal, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+            .foregroundStyle(Colors.ink)
+            .background(Colors.white, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
 
         case .loading:
             ProgressView()
@@ -132,12 +132,12 @@ struct ContactsStepView: View {
         HStack {
             Text(name)
                 .font(Typography.font(.body))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
             Spacer()
             trailing()
         }
         .padding(Spacing.md)
-        .background(Colors.white, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+        .background(Colors.surfaceInput, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
     }
 
     private func connect() {
@@ -180,5 +180,5 @@ struct ContactsStepView: View {
 #Preview {
     ContactsStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }

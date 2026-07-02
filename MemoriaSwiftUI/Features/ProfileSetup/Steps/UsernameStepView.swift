@@ -31,7 +31,7 @@ struct UsernameStepView: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("Pick a username")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             TextField("", text: $store.username, prompt: Text("username").foregroundStyle(Colors.textPlaceholder))
@@ -78,5 +78,5 @@ struct UsernameStepView: View {
 #Preview {
     UsernameStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }

@@ -14,7 +14,7 @@ struct PhotoStepView: View {
         VStack(spacing: Spacing.lg) {
             Text("Add a profile photo")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             Text("Optional — you can always add one later.")
@@ -73,8 +73,8 @@ private struct PhotoPickerLabel: View {
             InitialAvatar(
                 name: name,
                 size: 120,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.charcoal,
+                backgroundColor: Colors.surfaceInput,
+                foregroundColor: Colors.textPrimary,
                 imageData: previewData
             )
             if isUploading {
@@ -90,5 +90,5 @@ private struct PhotoPickerLabel: View {
 #Preview {
     PhotoStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }

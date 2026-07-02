@@ -17,7 +17,7 @@ struct ConfirmationStepView: View {
 
             Text("Profile created ✓")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
 
             if let errorMessage {
                 Text(errorMessage)
@@ -45,7 +45,7 @@ struct ConfirmationStepView: View {
         }
         .padding(.horizontal, Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Colors.lightBackground.ignoresSafeArea())
+        .background(Colors.background.ignoresSafeArea())
         .task {
             await finalize()
         }

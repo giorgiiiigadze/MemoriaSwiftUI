@@ -15,7 +15,7 @@ struct PhoneStepView: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("What's your phone number?")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             Text("Optional — helps friends already in your contacts find you.")
@@ -81,5 +81,5 @@ struct PhoneStepView: View {
 #Preview {
     PhoneStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }

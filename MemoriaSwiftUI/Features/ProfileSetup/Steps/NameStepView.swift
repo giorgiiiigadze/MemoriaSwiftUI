@@ -14,7 +14,7 @@ struct NameStepView: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("What should friends call you?")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             TextField("", text: $store.name, prompt: Text("Your name").foregroundStyle(Colors.textPlaceholder))
@@ -35,5 +35,5 @@ struct NameStepView: View {
 #Preview {
     NameStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }

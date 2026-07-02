@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Full-screen, light-themed 7-step wizard shown after a fresh sign-up (or a sign-in that
-/// never finished setup). Custom step chrome — no `NavigationStack` — since the spec wants
-/// a bespoke header (progress dots, back chevron, conditional skip), not a system nav bar.
+/// Full-screen, dark BeReal-style 7-step wizard shown after a fresh sign-up (or a sign-in
+/// that never finished setup). Custom step chrome — no `NavigationStack` — since the spec
+/// wants a bespoke header (glass back button, centered wordmark, glass Skip), not a system
+/// nav bar.
 struct ProfileSetupFlowView: View {
     let userID: UUID
     let onComplete: (Profile) -> Void
@@ -19,14 +20,13 @@ struct ProfileSetupFlowView: View {
 
     var body: some View {
         ZStack {
-            Colors.lightBackground.ignoresSafeArea()
+            Colors.background.ignoresSafeArea()
 
             if isShowingConfirmation {
                 ConfirmationStepView(onComplete: onComplete)
             } else {
                 VStack(spacing: 0) {
                     ProfileSetupHeader(
-                        step: step,
                         onBack: headerBackAction,
                         onSkip: headerSkipAction
                     )
@@ -57,7 +57,7 @@ struct ProfileSetupFlowView: View {
             }
         }
         .environment(store)
-        .preferredColorScheme(.light)
+        .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: step)
         .task {
             await store.loadExistingProfile()

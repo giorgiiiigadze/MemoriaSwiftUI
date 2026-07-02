@@ -11,7 +11,7 @@ struct AgeStepView: View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("How old are you?")
                 .font(Typography.font(.xl, weight: .semiBold))
-                .foregroundStyle(Colors.charcoal)
+                .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 
             Text("Optional — you can skip this.")
@@ -63,5 +63,5 @@ struct AgeStepView: View {
 #Preview {
     AgeStepView(onContinue: {})
         .environment(ProfileSetupStore(userID: UUID()))
-        .background(Colors.lightBackground)
+        .background(Colors.background)
 }
