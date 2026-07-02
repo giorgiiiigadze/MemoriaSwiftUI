@@ -94,7 +94,7 @@ struct AuthView: View {
 
                 submitButton
             }
-            .padding(.horizontal, Spacing.xl)
+            .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xl)
         }
         .scrollDismissesKeyboard(.interactively)
@@ -113,12 +113,12 @@ struct AuthView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.sm)
+            .padding(.vertical, Spacing.lg)
         }
         .foregroundStyle(Colors.ink)
         .background(
             canSubmit ? Colors.accent : Colors.accent.opacity(0.4),
-            in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
         .disabled(!canSubmit)
     }

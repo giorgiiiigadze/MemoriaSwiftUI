@@ -9,7 +9,7 @@ struct ProfileSetupHeader: View {
     var body: some View {
         ZStack {
             Text("Memoria")
-                .font(Typography.font(.lg, weight: .strong))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
 
             HStack {
