@@ -22,7 +22,9 @@ struct ProfileSetupHeader: View {
                 }
             }
         }
-        .padding(.horizontal, Spacing.lg)
+        // No explicit value: uses SwiftUI's system-default, platform-adaptive horizontal
+        // padding (16pt on iPhone) instead of a hardcoded margin.
+        .padding(.horizontal)
         .padding(.top, Spacing.sm)
     }
 }
