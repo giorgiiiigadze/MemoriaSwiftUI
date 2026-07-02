@@ -46,10 +46,15 @@ final class ContactsMatchingService {
         return "+1" + digits
     }
 
-    /// `nonisolated` so the blocking `enumerateContacts(with:)` call below runs off the main
-    /// actor — this project defaults every type to `@MainActor` isolation
-    /// (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), and Apple's Contacts framework
-    /// explicitly documents that method as unsafe to call on the main thread.
+    /// `nonisolated` frees this from the type's default `@MainActor` isolation
+    /// (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), but that alone no longer keeps the blocking
+    /// `enumerateContacts(with:)` off the main thread: with approachable concurrency
+    /// (`SWIFT_APPROACHABLE_CONCURRENCY = YES` → `NonisolatedNonsendingByDefault`) a `nonisolated
+    /// async` method runs on the *caller's* executor — here the `@MainActor` callers — which is
+    /// exactly what Apple documents as unsafe for that method. So the synchronous enumeration is
+    /// run inside a `Task.detached`, which never inherits an actor and executes on the global
+    /// concurrent pool. Everything it touches (store, keys) is created inside the closure so
+    /// nothing non-`Sendable` is captured across the boundary.
     nonisolated func fetchDeviceContacts() async throws -> [DeviceContact] {
         let store = CNContactStore()
         let granted = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
@@ -63,27 +68,30 @@ final class ContactsMatchingService {
         }
         guard granted else { throw ContactsMatchingError.accessDenied }
 
-        let keysToFetch: [CNKeyDescriptor] = [
-            CNContactGivenNameKey as CNKeyDescriptor,
-            CNContactFamilyNameKey as CNKeyDescriptor,
-            CNContactPhoneNumbersKey as CNKeyDescriptor
-        ]
-        let request = CNContactFetchRequest(keysToFetch: keysToFetch)
+        return try await Task.detached {
+            let store = CNContactStore()
+            let keysToFetch: [CNKeyDescriptor] = [
+                CNContactGivenNameKey as CNKeyDescriptor,
+                CNContactFamilyNameKey as CNKeyDescriptor,
+                CNContactPhoneNumbersKey as CNKeyDescriptor
+            ]
+            let request = CNContactFetchRequest(keysToFetch: keysToFetch)
 
-        var contacts: [DeviceContact] = []
-        try store.enumerateContacts(with: request) { contact, _ in
-            let name = [contact.givenName, contact.familyName]
-                .filter { !$0.isEmpty }
-                .joined(separator: " ")
-            guard !name.isEmpty else { return }
+            var contacts: [DeviceContact] = []
+            try store.enumerateContacts(with: request) { contact, _ in
+                let name = [contact.givenName, contact.familyName]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                guard !name.isEmpty else { return }
 
-            for labeledPhone in contact.phoneNumbers {
-                if let normalized = Self.normalize(labeledPhone.value.stringValue) {
-                    contacts.append(DeviceContact(name: name, normalizedPhone: normalized))
+                for labeledPhone in contact.phoneNumbers {
+                    if let normalized = Self.normalize(labeledPhone.value.stringValue) {
+                        contacts.append(DeviceContact(name: name, normalizedPhone: normalized))
+                    }
                 }
             }
-        }
-        return contacts
+            return contacts
+        }.value
     }
 
     /// Splits `contacts` into those whose normalized phone matches an existing `profiles.phone`
