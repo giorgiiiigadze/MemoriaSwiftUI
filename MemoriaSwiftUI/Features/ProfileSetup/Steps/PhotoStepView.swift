@@ -11,7 +11,13 @@ struct PhotoStepView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(spacing: Spacing.lg) {
+        // The PhotosPicker `label:` closure is treated as @Sendable, so it can't reference
+        // main-actor-isolated state (`store`, `@State`) directly. Read the values here on the
+        // main actor and let the closure capture these plain, Sendable locals instead.
+        let name = store.name
+        let previewData = previewData
+        let isUploading = isUploading
+        return VStack(spacing: Spacing.lg) {
             Text("Add a profile photo")
                 .font(Typography.font(.xl, weight: .semiBold))
                 .foregroundStyle(Colors.textPrimary)
@@ -22,7 +28,7 @@ struct PhotoStepView: View {
                 .foregroundStyle(Colors.textSecondary)
 
             PhotosPicker(selection: $pickerItem, matching: .images) {
-                PhotoPickerLabel(name: store.name, previewData: previewData, isUploading: isUploading)
+                PhotoPickerLabel(name: name, previewData: previewData, isUploading: isUploading)
             }
             .disabled(isUploading)
             .onChange(of: pickerItem) { _, newItem in

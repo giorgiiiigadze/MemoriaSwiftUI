@@ -29,7 +29,11 @@ final class ContactsMatchingService {
     /// prefixes `+1` — also accepting the common 11-digit "1XXXXXXXXXX" form (a leading
     /// US country-code digit with no `+`, e.g. how contacts are frequently stored on-device).
     /// Anything else can't be normalized reliably, so it's dropped.
-    static func normalize(_ raw: String) -> String? {
+    ///
+    /// `nonisolated` (the type defaults to `@MainActor`) because it's a pure string
+    /// transform with no actor state — this lets `fetchDeviceContacts`' off-main-actor
+    /// `enumerateContacts` closure call it directly.
+    nonisolated static func normalize(_ raw: String) -> String? {
         let allowed = raw.filter { $0.isNumber || $0 == "+" }
         if allowed.hasPrefix("+") {
             return allowed
