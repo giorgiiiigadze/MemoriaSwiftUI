@@ -8,6 +8,10 @@ struct ProfileSetupContinueButton: View {
     // Defaults to 16pt top+bottom → ~51pt tall, matching BeReal's primary CTA (profile setup).
     // The auth flow overrides this for a slightly taller pill.
     var verticalPadding: CGFloat = Spacing.lg
+    // 14pt radius / 15pt semibold label are the profile-setup defaults; the auth flow overrides
+    // both to match BeReal's rounder, bolder button.
+    var cornerRadius: CGFloat = 14
+    var titleFont: Font = Typography.font(.body, weight: .semiBold)
     let action: () -> Void
 
     var body: some View {
@@ -17,7 +21,7 @@ struct ProfileSetupContinueButton: View {
                     ProgressView().tint(Colors.ink)
                 } else {
                     Text(title)
-                        .font(Typography.font(.body, weight: .semiBold))
+                        .font(titleFont)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -25,9 +29,8 @@ struct ProfileSetupContinueButton: View {
         }
         .foregroundStyle(Colors.ink)
         .background(
-            // 14pt — BeReal's rounded-rectangle CTA radius (between Radii.md/lg).
             isEnabled ? Colors.white : Colors.white.opacity(0.4),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
         .disabled(!isEnabled || isLoading)
     }

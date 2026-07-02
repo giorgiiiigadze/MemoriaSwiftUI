@@ -33,7 +33,13 @@ struct LoginEmailStepView: View {
 
             Spacer()
 
-            ProfileSetupContinueButton(isEnabled: isValid, verticalPadding: Spacing.xl, action: onContinue)
+            ProfileSetupContinueButton(
+                isEnabled: isValid,
+                verticalPadding: Spacing.xl,
+                cornerRadius: Radii.lg,
+                titleFont: Typography.font(.lg, weight: .strong),
+                action: onContinue
+            )
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)

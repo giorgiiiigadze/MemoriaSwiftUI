@@ -27,47 +27,49 @@ struct AuthView: View {
     private let authStore = AuthStore()
 
     var body: some View {
-        ZStack {
-            Colors.background.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Colors.background.ignoresSafeArea()
 
-            if didRequestConfirmation {
-                SignUpConfirmationView(email: email, onBackToStart: resetToStart)
-            } else {
-                VStack(spacing: 0) {
-                    AuthFlowHeader(
-                        onBack: headerBackAction,
-                        onLogin: { isShowingLogin = true }
-                    )
+                if didRequestConfirmation {
+                    SignUpConfirmationView(email: email, onBackToStart: resetToStart)
+                } else {
+                    VStack(spacing: 0) {
+                        AuthFlowHeader(
+                            onBack: headerBackAction,
+                            onLogin: { isShowingLogin = true }
+                        )
 
-                    Group {
-                        switch step {
-                        case .email:
-                            SignUpEmailStepView(email: $email, onContinue: goToPasswordStep)
-                        case .password:
-                            SignUpPasswordStepView(
-                                password: $password,
-                                agreedToTerms: $agreedToTerms,
-                                isSubmitting: isSubmitting,
-                                errorMessage: errorMessage,
-                                onSubmit: { Task { await submitSignUp() } }
-                            )
+                        Group {
+                            switch step {
+                            case .email:
+                                SignUpEmailStepView(email: $email, onContinue: goToPasswordStep)
+                            case .password:
+                                SignUpPasswordStepView(
+                                    password: $password,
+                                    agreedToTerms: $agreedToTerms,
+                                    isSubmitting: isSubmitting,
+                                    errorMessage: errorMessage,
+                                    onSubmit: { Task { await submitSignUp() } }
+                                )
+                            }
                         }
+                        .transition(.opacity)
                     }
-                    .transition(.opacity)
                 }
             }
-
-            // Presented as a push (slide in from the trailing edge) over the sign-up flow rather
-            // than a bottom sheet, matching the forward navigation feel of the rest of the wizard.
-            if isShowingLogin {
+            .toolbar(.hidden, for: .navigationBar)
+            // Login is pushed with the native slide-from-right animation (and its own custom glass
+            // header) rather than presented as a bottom sheet. The system nav bar is hidden so only
+            // the app's `AuthFlowHeader` shows; LoginView's back button pops via `isShowingLogin`.
+            .navigationDestination(isPresented: $isShowingLogin) {
                 LoginView(onDismiss: { isShowingLogin = false })
-                    .transition(.move(edge: .trailing))
-                    .zIndex(1)
+                    .toolbar(.hidden, for: .navigationBar)
+                    .navigationBarBackButtonHidden(true)
             }
         }
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: step)
-        .animation(.easeInOut(duration: 0.3), value: isShowingLogin)
     }
 
     /// Back is only meaningful on the password step (returns to email); the email step is the

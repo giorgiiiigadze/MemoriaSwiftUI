@@ -53,6 +53,8 @@ struct SignUpPasswordStepView: View {
                 isEnabled: isValid,
                 isLoading: isSubmitting,
                 verticalPadding: Spacing.xl,
+                cornerRadius: Radii.lg,
+                titleFont: Typography.font(.lg, weight: .strong),
                 action: onSubmit
             )
         }
