@@ -15,4 +15,36 @@ final class DropsService {
             .execute()
             .value
     }
+
+    /// The columns the Home feed's `DropCard` needs: the drop, its participants (each with a
+    /// trimmed profile), and its creator's profile — all embedded through foreign keys so the
+    /// feed is one round-trip. The `!user_id` / `!creator_id` hints disambiguate the two
+    /// `profiles` relationships. The `\` continuations keep this one PostgREST select string
+    /// with no embedded newlines.
+    private static let feedSelect = """
+    id, creator_id, title, thumbnail_url, state, open_date, created_at, \
+    participants:drop_participants(id, user_id, status, has_uploaded, \
+    profile:profiles!user_id(id, username, display_name, avatar_url)), \
+    creator:profiles!creator_id(id, username, display_name, avatar_url)
+    """
+
+    /// All drops for the Home feed, newest first, each with its creator + participants embedded.
+    func fetchDrops() async throws -> [DropWithParticipants] {
+        try await client
+            .from("drops")
+            .select(Self.feedSelect)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Permanently deletes a drop for everyone. Only the creator may delete — enforced by the
+    /// `drops` table's row-level security, not here.
+    func deleteDrop(id: UUID) async throws {
+        try await client
+            .from("drops")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
 }
