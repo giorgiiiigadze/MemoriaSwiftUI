@@ -14,8 +14,8 @@ struct HomeView: View {
                 // Two buttons in one ToolbarItemGroup → the system renders them as a single
                 // native Liquid Glass pill on iOS 26 (BeReal's top control), no custom capsule.
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button {
-                        // TODO: notifications
+                    NavigationLink {
+                        NotificationsView()
                     } label: {
                         Image(systemName: "bell.fill")
                     }

@@ -3,7 +3,7 @@ import Foundation
 /// A drop as shown in the Calendar tab: just the fields a mini card needs, with the
 /// creator's profile embedded via the `drops.creator_id → profiles` foreign key so we
 /// can label each card with a name without a second round-trip.
-struct CalendarDrop: Decodable, Identifiable, Hashable, Sendable {
+struct CalendarDrop: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let creatorId: UUID
     let title: String
@@ -11,7 +11,7 @@ struct CalendarDrop: Decodable, Identifiable, Hashable, Sendable {
     let createdAt: Date
     let creator: Creator?
 
-    struct Creator: Decodable, Hashable, Sendable {
+    struct Creator: Codable, Hashable, Sendable {
         let username: String
         let displayName: String?
 
