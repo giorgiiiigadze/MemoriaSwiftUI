@@ -27,6 +27,7 @@ enum Typography {
         case lg = 18
         case xl = 22
         case xxl = 28
+        case xxxl = 38
     }
 
     static func font(_ size: Size, weight: Weight = .regular) -> Font {

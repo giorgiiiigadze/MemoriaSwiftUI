@@ -16,7 +16,7 @@ struct ConfirmationStepView: View {
                 .foregroundStyle(Colors.success)
 
             Text("Profile created ✓")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
 
             if let errorMessage {

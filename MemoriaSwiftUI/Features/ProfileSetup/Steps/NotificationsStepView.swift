@@ -16,7 +16,7 @@ struct NotificationsStepView: View {
                 .padding(.top, Spacing.xxl)
 
             Text("Stay in the loop")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
 
             Text("Get notified when drops open, friends invite you, or new photos are added.")

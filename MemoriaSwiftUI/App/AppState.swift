@@ -125,6 +125,12 @@ final class AppState {
                 return
             }
 
+            // Warm the avatar into the on-disk cache while the splash is still up, so the Profile
+            // tab's photo is instant the moment the tabs appear instead of downloading on-appear.
+            if let avatarURL = profile.avatarURL, let url = URL(string: avatarURL) {
+                await AvatarImageCache.prefetch(url)
+            }
+
             self.profile = profile
             hasSeenOnboarding = true
             phase = .app

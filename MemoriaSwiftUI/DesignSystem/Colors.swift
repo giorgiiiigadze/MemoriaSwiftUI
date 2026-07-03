@@ -15,7 +15,7 @@ enum Colors {
     static let textTertiary = Color(hex: 0x6E6E73)
     static let textMuted = Color(hex: 0x898989)
     static let textLight = Color(hex: 0xC4C4C4)
-    static let textPlaceholder = Color(hex: 0x8E8E93)
+    static let textPlaceholder = Color(hex: 0x474747)
 
     static let borderDefault = Color(hex: 0x3B3B3B)
     static let borderSubtle = Color(hex: 0x252525)

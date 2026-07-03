@@ -4,6 +4,8 @@ struct NameStepView: View {
     @Environment(ProfileSetupStore.self) private var store
     let onContinue: () -> Void
 
+    @FocusState private var isFocused: Bool
+
     private var isValid: Bool {
         !store.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -11,15 +13,18 @@ struct NameStepView: View {
     var body: some View {
         @Bindable var store = store
 
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        VStack(spacing: Spacing.lg) {
             Text("What should friends call you?")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
-                .padding(.top, Spacing.xxl)
+                .multilineTextAlignment(.center)
+                .padding(.top, Spacing.huge)
 
             TextField("", text: $store.name, prompt: Text("Your name").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .padding(.top, Spacing.lg)
                 .textInputAutocapitalization(.words)
+                .focused($isFocused)
                 .submitLabel(.continue)
                 .onSubmit { if isValid { onContinue() } }
 
@@ -29,6 +34,7 @@ struct NameStepView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
+        .onAppear { isFocused = true }
     }
 }
 

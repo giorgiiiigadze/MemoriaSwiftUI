@@ -6,10 +6,10 @@ import Supabase
 /// flow's structure and BeReal styling.
 ///
 /// Routing after a successful sign-in is handled by `AppState`'s `authStateChanges` listener
-/// (`.signedIn` → `.app` for a finished profile, or `.profileSetup` for an unfinished one). When
-/// that moves the app off `.auth`, this cover dismisses itself so the destination is visible; the
-/// `.app` transition tears down the whole auth container anyway, but the `.profileSetup` push
-/// happens underneath, so the explicit dismiss matters there.
+/// (`.signedIn` → `.app` for a finished profile, or `.profileSetup` for an unfinished one). For
+/// `.app`, this view stays put and lets `RootView` cross-dissolve the whole auth container into
+/// the tab bar in one clean motion. Only `.profileSetup` triggers an explicit dismiss, since that
+/// destination is pushed underneath this cover and has to be revealed.
 struct LoginView: View {
     @Environment(AppState.self) private var appState
     let onDismiss: () -> Void
@@ -52,7 +52,11 @@ struct LoginView: View {
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: step)
         .onChange(of: appState.phase) { _, newPhase in
-            if newPhase != .auth { onDismiss() }
+            // On sign-in into the app, let `RootView`'s cross-dissolve tear down the whole auth
+            // container in a single motion — popping this login push here would fire a competing
+            // slide-back animation underneath the fade. Only `.profileSetup` needs the explicit
+            // dismiss, since that destination is pushed underneath this cover and must be revealed.
+            if newPhase == .profileSetup { onDismiss() }
         }
     }
 

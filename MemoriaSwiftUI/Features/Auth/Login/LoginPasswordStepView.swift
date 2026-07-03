@@ -18,13 +18,13 @@ struct LoginPasswordStepView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Enter your password")
-                .font(Typography.font(.xxl, weight: .strong))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
 
             SecureField("", text: $password, prompt: Text("Password").foregroundStyle(Colors.textPlaceholder))
-                .authInputFieldStyle()
+                .inputFieldStyle()
                 .padding(.top, Spacing.lg)
                 .textContentType(.password)
                 .focused($isFocused)
@@ -44,9 +44,6 @@ struct LoginPasswordStepView: View {
                 title: "Log in",
                 isEnabled: canContinue,
                 isLoading: isSubmitting,
-                verticalPadding: Spacing.xl,
-                cornerRadius: Radii.lg,
-                titleFont: Typography.font(.lg, weight: .strong),
                 action: onSubmit
             )
         }

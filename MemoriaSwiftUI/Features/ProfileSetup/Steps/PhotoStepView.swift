@@ -19,7 +19,7 @@ struct PhotoStepView: View {
         let isUploading = isUploading
         return VStack(spacing: Spacing.lg) {
             Text("Add a profile photo")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 

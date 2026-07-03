@@ -18,7 +18,6 @@ struct AuthView: View {
     @State private var step: SignUpStep = .email
     @State private var email = ""
     @State private var password = ""
-    @State private var agreedToTerms = false
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var didRequestConfirmation = false
@@ -47,7 +46,6 @@ struct AuthView: View {
                             case .password:
                                 SignUpPasswordStepView(
                                     password: $password,
-                                    agreedToTerms: $agreedToTerms,
                                     isSubmitting: isSubmitting,
                                     errorMessage: errorMessage,
                                     onSubmit: { Task { await submitSignUp() } }
@@ -66,6 +64,7 @@ struct AuthView: View {
                 LoginView(onDismiss: { isShowingLogin = false })
                     .toolbar(.hidden, for: .navigationBar)
                     .navigationBarBackButtonHidden(true)
+                    .interactiveSwipeBack()
             }
         }
         .preferredColorScheme(.dark)
@@ -90,12 +89,11 @@ struct AuthView: View {
     }
 
     /// Returns to a clean sign-up start (from the email-confirmation screen). Keeps the entered
-    /// email so a re-attempt doesn't force retyping it, but clears the password and agreement.
+    /// email so a re-attempt doesn't force retyping it, but clears the password.
     private func resetToStart() {
         didRequestConfirmation = false
         step = .email
         password = ""
-        agreedToTerms = false
         errorMessage = nil
     }
 

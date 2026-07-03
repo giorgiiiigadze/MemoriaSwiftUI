@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// Step 2 (final) of the sign-up flow: choose a password and agree to the Terms, then create the
-/// account. Styled like the ProfileSetup wizard steps. The actual `signUp` network call and its
-/// outcome routing live in `AuthView`; this view surfaces the loading/error it's handed.
+/// Step 2 (final) of the sign-up flow: choose a password, then create the account. Styled like the
+/// ProfileSetup wizard steps. The actual `signUp` network call and its outcome routing live in
+/// `AuthView`; this view surfaces the loading/error it's handed.
 struct SignUpPasswordStepView: View {
     @Binding var password: String
-    @Binding var agreedToTerms: Bool
     let isSubmitting: Bool
     let errorMessage: String?
     let onSubmit: () -> Void
@@ -13,13 +12,13 @@ struct SignUpPasswordStepView: View {
     @FocusState private var isFocused: Bool
 
     private var isValid: Bool {
-        password.count >= 6 && agreedToTerms
+        password.count >= 6
     }
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Create a password")
-                .font(Typography.font(.xxl, weight: .strong))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
@@ -30,14 +29,12 @@ struct SignUpPasswordStepView: View {
                 .multilineTextAlignment(.center)
 
             SecureField("", text: $password, prompt: Text("Password").foregroundStyle(Colors.textPlaceholder))
-                .authInputFieldStyle()
+                .inputFieldStyle()
                 .padding(.top, Spacing.lg)
                 .textContentType(.newPassword)
                 .focused($isFocused)
                 .submitLabel(.go)
                 .onSubmit { if isValid { onSubmit() } }
-
-            TermsCheckboxRow(isChecked: $agreedToTerms)
 
             if let errorMessage {
                 Text(errorMessage)
@@ -52,9 +49,6 @@ struct SignUpPasswordStepView: View {
                 title: "Create account",
                 isEnabled: isValid,
                 isLoading: isSubmitting,
-                verticalPadding: Spacing.xl,
-                cornerRadius: Radii.lg,
-                titleFont: Typography.font(.lg, weight: .strong),
                 action: onSubmit
             )
         }
@@ -64,29 +58,9 @@ struct SignUpPasswordStepView: View {
     }
 }
 
-private struct TermsCheckboxRow: View {
-    @Binding var isChecked: Bool
-
-    var body: some View {
-        Button {
-            isChecked.toggle()
-        } label: {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: isChecked ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isChecked ? Colors.white : Colors.textSecondary)
-                Text("I agree to the Terms of Service")
-                    .font(Typography.font(.sm))
-                    .foregroundStyle(Colors.textSecondary)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 #Preview {
     SignUpPasswordStepView(
         password: .constant(""),
-        agreedToTerms: .constant(false),
         isSubmitting: false,
         errorMessage: nil,
         onSubmit: {}

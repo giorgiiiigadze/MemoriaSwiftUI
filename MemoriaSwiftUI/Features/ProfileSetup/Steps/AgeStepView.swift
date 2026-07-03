@@ -7,20 +7,26 @@ struct AgeStepView: View {
     @State private var text = ""
     @State private var errorMessage: String?
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        VStack(spacing: Spacing.lg) {
             Text("How old are you?")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
-                .padding(.top, Spacing.xxl)
+                .multilineTextAlignment(.center)
+                .padding(.top, Spacing.huge)
 
             Text("Optional — you can skip this.")
                 .font(Typography.font(.sm))
                 .foregroundStyle(Colors.textSecondary)
+                .multilineTextAlignment(.center)
 
             TextField("", text: $text, prompt: Text("Age").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .padding(.top, Spacing.lg)
                 .keyboardType(.numberPad)
+                .focused($isFocused)
                 .onChange(of: text) { _, newValue in
                     text = String(newValue.filter(\.isNumber).prefix(3))
                 }
@@ -29,6 +35,7 @@ struct AgeStepView: View {
                 Text(errorMessage)
                     .font(Typography.font(.sm))
                     .foregroundStyle(Colors.error)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()
@@ -41,6 +48,7 @@ struct AgeStepView: View {
             if let age = store.age {
                 text = String(age)
             }
+            isFocused = true
         }
     }
 

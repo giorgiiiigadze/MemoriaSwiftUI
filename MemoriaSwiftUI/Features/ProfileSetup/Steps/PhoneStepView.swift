@@ -1,78 +1,62 @@
 import SwiftUI
 
-/// Both Continue and Skip trigger the early `profiles` upsert (per spec), so this step
-/// renders its own Skip button with the same inline loading/error handling as Continue,
-/// instead of using `ProfileSetupHeader`'s generic (no-side-effect) Skip.
+/// Skip lives in the header pill (like every other skippable step), driven by
+/// `ProfileSetupFlowView`. Both Continue and Skip run through `store.submitPhone(rawInput:)`,
+/// which performs the early `profiles` upsert (per spec); Continue additionally validates and
+/// records the entered number. Errors from either path surface via `store.phoneEntryError`.
 struct PhoneStepView: View {
     @Environment(ProfileSetupStore.self) private var store
     let onContinue: () -> Void
 
     @State private var text = ""
     @State private var isSubmitting = false
-    @State private var errorMessage: String?
+
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        VStack(spacing: Spacing.lg) {
             Text("What's your phone number?")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
-                .padding(.top, Spacing.xxl)
+                .multilineTextAlignment(.center)
+                .padding(.top, Spacing.huge)
 
             Text("Optional — helps friends already in your contacts find you.")
                 .font(Typography.font(.sm))
                 .foregroundStyle(Colors.textSecondary)
+                .multilineTextAlignment(.center)
 
             TextField("", text: $text, prompt: Text("Phone number").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .padding(.top, Spacing.lg)
                 .keyboardType(.phonePad)
+                .focused($isFocused)
 
-            if let errorMessage {
+            if let errorMessage = store.phoneEntryError {
                 Text(errorMessage)
                     .font(Typography.font(.sm))
                     .foregroundStyle(Colors.error)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()
 
-            VStack(spacing: Spacing.sm) {
-                ProfileSetupContinueButton(isLoading: isSubmitting, action: { submit(withPhone: true) })
-
-                Button {
-                    submit(withPhone: false)
-                } label: {
-                    Text("Skip")
-                        .font(Typography.font(.sm, weight: .medium))
-                        .foregroundStyle(Colors.textTertiary)
-                }
-                .disabled(isSubmitting)
-            }
+            ProfileSetupContinueButton(isLoading: isSubmitting, action: submit)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
+        .onAppear {
+            isFocused = true
+            store.phoneEntryError = nil
+        }
     }
 
-    private func submit(withPhone: Bool) {
-        errorMessage = nil
-
-        if withPhone {
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                guard let normalized = ContactsMatchingService.normalize(trimmed) else {
-                    errorMessage = "That doesn't look like a valid phone number."
-                    return
-                }
-                store.phone = normalized
-            }
-        }
-
+    private func submit() {
         isSubmitting = true
         Task {
             defer { isSubmitting = false }
-            do {
-                try await store.upsertEarly()
+            if await store.submitPhone(rawInput: text) {
                 onContinue()
-            } catch {
-                errorMessage = error.localizedDescription
             }
         }
     }

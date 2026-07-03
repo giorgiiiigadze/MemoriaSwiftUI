@@ -22,7 +22,7 @@ struct ContactsStepView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("Find friends on Memoria")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .padding(.top, Spacing.xxl)
 

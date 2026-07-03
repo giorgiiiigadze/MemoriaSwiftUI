@@ -20,6 +20,10 @@ final class ProfileSetupStore {
     var age: Int?
     var phone: String?
 
+    /// Surfaced on the Phone step for either entry point (Continue button or header Skip pill),
+    /// since both now run through `submitPhone(rawInput:)`.
+    var phoneEntryError: String?
+
     private let client = SupabaseClient.shared
 
     init(userID: UUID) {
@@ -106,7 +110,10 @@ final class ProfileSetupStore {
             throw ProfileSetupError.invalidImage
         }
 
-        let path = "\(userID)/avatar.jpg"
+        // Lowercased to match `auth.uid()::text` (Postgres UUIDs are lowercase) — the avatars
+        // bucket's RLS policy scopes writes to `{auth.uid()}/…`, and Swift's `UUID` interpolates
+        // as uppercase, which would fail that folder check.
+        let path = "\(userID.uuidString.lowercased())/avatar.jpg"
         try await client.storage.from("avatars").upload(
             path,
             data: jpegData,
@@ -114,6 +121,11 @@ final class ProfileSetupStore {
         )
         let publicURL = try client.storage.from("avatars").getPublicURL(path: path).absoluteString
         avatarURL = publicURL
+        // Seed the disk cache with the bytes we already have, so the Profile tab shows this photo
+        // instantly on the first entry into `.app` right after setup — no download round-trip.
+        if let url = URL(string: publicURL) {
+            AvatarImageCache.store(jpegData, for: url)
+        }
         return publicURL
     }
 
@@ -121,6 +133,33 @@ final class ProfileSetupStore {
     func upsertEarly() async throws {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
         _ = try await performUpsert(username: trimmed)
+    }
+
+    /// The Phone step's shared submit path, used by both its Continue button and the header
+    /// Skip pill. `rawInput == nil` (Skip) advances without recording a number; a non-empty
+    /// entry is validated/normalized first. Persists via `upsertEarly()`. Returns whether the
+    /// step may advance; on failure `phoneEntryError` holds the message to show.
+    func submitPhone(rawInput: String?) async -> Bool {
+        phoneEntryError = nil
+
+        if let rawInput {
+            let trimmed = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                guard let normalized = ContactsMatchingService.normalize(trimmed) else {
+                    phoneEntryError = "That doesn't look like a valid phone number."
+                    return false
+                }
+                phone = normalized
+            }
+        }
+
+        do {
+            try await upsertEarly()
+            return true
+        } catch {
+            phoneEntryError = error.localizedDescription
+            return false
+        }
     }
 
     /// Called from the confirmation screen. Falls back to an auto-generated username in the

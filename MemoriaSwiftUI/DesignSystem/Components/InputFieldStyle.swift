@@ -1,12 +1,19 @@
 import SwiftUI
 
 extension View {
-    /// The common chrome for a single-line input field on a dark-background screen —
-    /// used across the ProfileSetup wizard's Name/Username/Age/Phone steps.
+    /// BeReal-style input for the auth and profile-setup flows: no background fill, text (and its
+    /// placeholder) centered and enlarged, so the field reads as bold centered type rather than a
+    /// boxed form control. Shrinks to fit so a long value (e.g. an email) stays on one line.
+    ///
+    /// The placeholder colour is still set per-field via the `TextField`/`SecureField` `prompt`;
+    /// this only governs layout, size, and weight — which the prompt inherits.
     func inputFieldStyle() -> some View {
-        font(Typography.font(.body))
+        font(Typography.font(.xxxl, weight: .semiBold))
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
             .foregroundStyle(Colors.textPrimary)
-            .padding(Spacing.md)
-            .background(Colors.surfaceInput, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+            .padding(.vertical, Spacing.md)
+            .padding(.top, Spacing.sm)
     }
 }

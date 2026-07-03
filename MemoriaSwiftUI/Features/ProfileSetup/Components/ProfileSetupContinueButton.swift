@@ -5,13 +5,11 @@ struct ProfileSetupContinueButton: View {
     var title: String = "Continue"
     var isEnabled: Bool = true
     var isLoading: Bool = false
-    // Defaults to 16pt top+bottom → ~51pt tall, matching BeReal's primary CTA (profile setup).
-    // The auth flow overrides this for a slightly taller pill.
-    var verticalPadding: CGFloat = Spacing.lg
-    // 14pt radius / 15pt semibold label are the profile-setup defaults; the auth flow overrides
-    // both to match BeReal's rounder, bolder button.
-    var cornerRadius: CGFloat = 14
-    var titleFont: Font = Typography.font(.body, weight: .semiBold)
+    // BeReal's rounder, bolder primary CTA — shared by the auth and profile-setup flows:
+    // 18pt top+bottom padding, 16pt corner radius, 18pt semibold label.
+    var verticalPadding: CGFloat = Spacing.lxl
+    var cornerRadius: CGFloat = Radii.lg
+    var titleFont: Font = Typography.font(.lg, weight: .semiBold)
     let action: () -> Void
 
     var body: some View {

@@ -5,32 +5,63 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var appState = AppState()
 
+    /// Keeps the splash up for a minimum of 0.8s so it never flashes by on fast boot paths
+    /// (e.g. no stored session, where hydration resolves within a frame). Runs concurrently
+    /// with boot hydration, so the network round-trip counts toward the minimum rather than
+    /// stacking on top of it.
+    @State private var minimumSplashElapsed = false
+
+    private var isShowingSplash: Bool {
+        appState.phase == .splash || !minimumSplashElapsed
+    }
+
     var body: some View {
-        Group {
-            switch appState.phase {
-            case .splash:
+        // A `ZStack` (not a `Group`) so the outgoing and incoming screens overlap during a phase
+        // change and genuinely cross-dissolve — each branch carries `.transition(.opacity)`, driven
+        // by the `.animation(value:)` modifiers below. This is what gives logout (`.app` → `.auth`)
+        // its smooth fade out of the account.
+        ZStack {
+            if isShowingSplash {
                 SplashView()
-            case .onboarding:
-                PlaceholderScreen(
-                    title: "Onboarding",
-                    subtitle: "4-slide first-launch tutorial — not yet built",
-                    actionTitle: "Skip to Sign In",
-                    action: { appState.skipOnboarding() }
-                )
-            case .auth, .profileSetup:
-                // Sharing one NavigationStack (instead of swapping `.auth`/`.profileSetup` as
-                // separate top-level cases) gets the wizard a genuine native push transition —
-                // real spring physics and the interactive edge-swipe-back gesture — instead of
-                // a hand-rolled `.transition`/`.animation` approximation.
-                AuthFlowContainer()
-            case .app:
-                MainTabView()
+                    .transition(.opacity)
+            } else {
+                switch appState.phase {
+                case .splash:
+                    SplashView()
+                        .transition(.opacity)
+                case .onboarding:
+                    PlaceholderScreen(
+                        title: "Onboarding",
+                        subtitle: "4-slide first-launch tutorial — not yet built",
+                        actionTitle: "Skip to Sign In",
+                        action: { appState.skipOnboarding() }
+                    )
+                    .transition(.opacity)
+                case .auth, .profileSetup:
+                    // Sharing one NavigationStack (instead of swapping `.auth`/`.profileSetup` as
+                    // separate top-level cases) gets the wizard a genuine native push transition —
+                    // real spring physics and the interactive edge-swipe-back gesture — instead of
+                    // a hand-rolled `.transition`/`.animation` approximation.
+                    AuthFlowContainer()
+                        .transition(.opacity.animation(.easeInOut(duration: 0.6)))
+                case .app:
+                    MainTabView()
+                        // 0.6s (vs the ambient 0.3s) makes the account↔auth cross-dissolve — most
+                        // visibly the fade out of the account on logout — slower and smoother. The
+                        // per-transition animation overrides the ambient one just for this swap.
+                        .transition(.opacity.animation(.easeInOut(duration: 0.6)))
+                }
             }
         }
         .environment(appState)
+        .animation(.easeInOut(duration: 0.3), value: isShowingSplash)
         .animation(.easeInOut(duration: 0.3), value: appState.phase)
         .task {
             appState.start()
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(0.8))
+            minimumSplashElapsed = true
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
@@ -84,8 +115,10 @@ private struct SplashView: View {
     var body: some View {
         ZStack {
             Colors.background.ignoresSafeArea()
-            ProgressView()
-                .tint(Colors.accent)
+
+            Text("Memoria")
+                .font(Typography.font(.xxxl, weight: .strong))
+                .foregroundStyle(Colors.textPrimary)
         }
     }
 }

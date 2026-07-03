@@ -15,13 +15,13 @@ struct LoginEmailStepView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Welcome back")
-                .font(Typography.font(.xxl, weight: .strong))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.huge)
 
             TextField("", text: $email, prompt: Text("Email").foregroundStyle(Colors.textPlaceholder))
-                .authInputFieldStyle()
+                .inputFieldStyle()
                 .padding(.top, Spacing.lg)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
@@ -33,13 +33,7 @@ struct LoginEmailStepView: View {
 
             Spacer()
 
-            ProfileSetupContinueButton(
-                isEnabled: isValid,
-                verticalPadding: Spacing.xl,
-                cornerRadius: Radii.lg,
-                titleFont: Typography.font(.lg, weight: .strong),
-                action: onContinue
-            )
+            ProfileSetupContinueButton(isEnabled: isValid, action: onContinue)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)

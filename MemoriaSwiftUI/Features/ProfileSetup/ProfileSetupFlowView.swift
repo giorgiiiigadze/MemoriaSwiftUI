@@ -11,6 +11,7 @@ struct ProfileSetupFlowView: View {
     @State private var store: ProfileSetupStore
     @State private var step: ProfileSetupStep = .name
     @State private var isShowingConfirmation = false
+    @State private var isSkippingPhone = false
 
     init(userID: UUID, onComplete: @escaping (Profile) -> Void) {
         self.userID = userID
@@ -42,9 +43,6 @@ struct ProfileSetupFlowView: View {
                         case .age:
                             AgeStepView(onContinue: goNext)
                         case .phone:
-                            // Phone's own Skip also needs the early-upsert side effect (with
-                            // inline loading/error), so it renders its own Skip button rather
-                            // than using the header's generic one — see `headerSkipAction`.
                             PhoneStepView(onContinue: goNext)
                         case .contacts:
                             ContactsStepView(onContinue: goNext)
@@ -70,8 +68,25 @@ struct ProfileSetupFlowView: View {
     }
 
     private var headerSkipAction: (() -> Void)? {
-        guard step.isSkippable, step != .phone else { return nil }
+        guard step.isSkippable else { return nil }
+        // Phone's Skip carries the early `profiles` upsert side effect, so it routes through the
+        // store instead of a plain advance — but it's still the header pill, like every other
+        // skippable step.
+        if step == .phone {
+            return isSkippingPhone ? nil : { skipPhone() }
+        }
         return { goNext() }
+    }
+
+    private func skipPhone() {
+        guard !isSkippingPhone else { return }
+        isSkippingPhone = true
+        Task {
+            defer { isSkippingPhone = false }
+            if await store.submitPhone(rawInput: nil) {
+                goNext()
+            }
+        }
     }
 
     private func goNext() {

@@ -5,6 +5,7 @@ struct UsernameStepView: View {
     let onContinue: () -> Void
 
     @State private var availability: ProfileSetupStore.UsernameAvailability = .idle
+    @FocusState private var isFocused: Bool
 
     private var statusText: String? {
         switch availability {
@@ -28,14 +29,17 @@ struct UsernameStepView: View {
     var body: some View {
         @Bindable var store = store
 
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        VStack(spacing: Spacing.lg) {
             Text("Pick a username")
-                .font(Typography.font(.xl, weight: .semiBold))
+                .font(Typography.font(.xl, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
-                .padding(.top, Spacing.xxl)
+                .multilineTextAlignment(.center)
+                .padding(.top, Spacing.huge)
 
             TextField("", text: $store.username, prompt: Text("username").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .padding(.top, Spacing.lg)
+                .focused($isFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: store.username) { _, newValue in
@@ -64,6 +68,7 @@ struct UsernameStepView: View {
                 Text(statusText)
                     .font(Typography.font(.sm))
                     .foregroundStyle(statusColor)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()
@@ -72,6 +77,7 @@ struct UsernameStepView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.xl)
+        .onAppear { isFocused = true }
     }
 }
 
