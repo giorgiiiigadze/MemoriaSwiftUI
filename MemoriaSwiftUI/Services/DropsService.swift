@@ -94,6 +94,17 @@ final class DropsService {
         return created.id
     }
 
+    /// How many drops the user has been invited to — i.e. their `drop_participants` rows. Uses a
+    /// head/count request so no rows travel back.
+    func invitedDropCount(userID: UUID) async throws -> Int {
+        let response = try await client
+            .from("drop_participants")
+            .select("*", head: true, count: .exact)
+            .eq("user_id", value: userID)
+            .execute()
+        return response.count ?? 0
+    }
+
     /// Permanently deletes a drop for everyone. Only the creator may delete — enforced by the
     /// `drops` table's row-level security, not here.
     func deleteDrop(id: UUID) async throws {

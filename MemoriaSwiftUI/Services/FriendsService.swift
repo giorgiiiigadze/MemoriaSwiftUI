@@ -52,6 +52,19 @@ final class FriendsService {
         return result
     }
 
+    /// Number of accepted friendships the user is part of — the Profile stat. Head/count request,
+    /// so no rows are returned.
+    func friendCount(userID: UUID) async throws -> Int {
+        let id = userID.uuidString.lowercased()
+        let response = try await client
+            .from("friendships")
+            .select("*", head: true, count: .exact)
+            .eq("status", value: FriendStatus.accepted.rawValue)
+            .or("requester_id.eq.\(id),addressee_id.eq.\(id)")
+            .execute()
+        return response.count ?? 0
+    }
+
     /// Username search (case-insensitive substring), excluding the caller. `profiles` SELECT is
     /// public, so this reaches anyone; callers gate it on a ≥2-character query.
     func search(query: String, excluding userID: UUID) async throws -> [DropWithParticipants.ProfileRef] {

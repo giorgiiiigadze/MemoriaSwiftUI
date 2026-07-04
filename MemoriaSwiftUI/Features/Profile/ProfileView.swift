@@ -9,8 +9,11 @@ struct ProfileView: View {
 
     @State private var drops: [CalendarDrop]
     @State private var isLoadingDrops: Bool
+    @State private var friendsCount = 0
+    @State private var invitedCount = 0
 
     private let service = DropsService()
+    private let friendsService = FriendsService()
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: Spacing.xxs),
@@ -46,6 +49,9 @@ struct ProfileView: View {
                             Text(displayName)
                                 .font(Typography.font(.xl, weight: .strong))
                                 .foregroundStyle(Colors.textPrimary)
+
+                            statsRow
+                                .padding(.top, Spacing.xs)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, Spacing.lg)
@@ -70,6 +76,17 @@ struct ProfileView: View {
         }
         .preferredColorScheme(.dark)
         .task { await loadDrops() }
+        .task { await loadStats() }
+    }
+
+    /// TikTok-style stat row: three number-over-label columns, evenly spaced, centered under the name.
+    private var statsRow: some View {
+        HStack(spacing: 0) {
+            ProfileStat(value: drops.count, label: "Drops")
+            ProfileStat(value: friendsCount, label: "Friends")
+            ProfileStat(value: invitedCount, label: "Invited")
+        }
+        .frame(maxWidth: 300)
     }
 
     /// The "All drops" header (Calendar section style) above the user's drops grid.
@@ -121,6 +138,30 @@ struct ProfileView: View {
             drops = fetched
             ProfileDropsCache.store(fetched)
         }
+    }
+
+    private func loadStats() async {
+        guard let id = profile?.id else { return }
+        if let count = try? await friendsService.friendCount(userID: id) { friendsCount = count }
+        if let count = try? await service.invitedDropCount(userID: id) { invitedCount = count }
+    }
+}
+
+/// One TikTok-style stat: a bold count over a small muted label, filling its share of the row.
+private struct ProfileStat: View {
+    let value: Int
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(Typography.font(.lg, weight: .strong))
+                .foregroundStyle(Colors.textPrimary)
+            Text(label)
+                .font(Typography.font(.xs))
+                .foregroundStyle(Colors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
