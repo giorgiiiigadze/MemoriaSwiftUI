@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// The Create Drop flow (step 6), presented as a modal sheet from the tab bar's "+". Three steps:
-/// 1) name + open date, 2) invite friends, 3) take the cover photo. The final step creates the
+/// The Create Drop flow, presented as a modal sheet from the tab bar's "+". Four steps:
+/// 1) name, 2) open date, 3) invite friends, 4) take the cover photo. The final step creates the
 /// drop (upload cover → insert drop → invite participants) and dismisses.
 struct CreateDropView: View {
     /// Called after a drop is successfully created, so the parent can refresh the Home feed.
@@ -14,18 +14,20 @@ struct CreateDropView: View {
     private let service = DropsService()
     private let friendsService = FriendsService()
 
-    private enum Step: Int, CaseIterable { case details, invite, cover }
+    private enum Step: Int, CaseIterable { case name, date, invite, cover }
 
-    @State private var step: Step = .details
+    @State private var step: Step = .name
 
     // Step 1
     @State private var title = ""
-    @State private var openDate = Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
+    @FocusState private var nameFocused: Bool
     // Step 2
+    @State private var openDate = Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
+    // Step 3
     @State private var friends: [Friend] = []
     @State private var friendsLoaded = false
     @State private var selectedFriendIDs: Set<UUID> = []
-    // Step 3
+    // Step 4
     @State private var coverImage: UIImage?
     @State private var isShowingCamera = false
 
@@ -37,7 +39,8 @@ struct CreateDropView: View {
 
     private var canAdvance: Bool {
         switch step {
-        case .details: return !trimmedTitle.isEmpty
+        case .name: return !trimmedTitle.isEmpty
+        case .date: return true
         case .invite: return true
         case .cover: return coverImage != nil && !isCreating
         }
@@ -54,7 +57,8 @@ struct CreateDropView: View {
                 ScrollView {
                     Group {
                         switch step {
-                        case .details: detailsStep
+                        case .name: nameStep
+                        case .date: dateStep
                         case .invite: inviteStep
                         case .cover: coverStep
                         }
@@ -68,6 +72,10 @@ struct CreateDropView: View {
         }
         .preferredColorScheme(.dark)
         .task { await loadFriends() }
+        .onChange(of: step) { _, newStep in
+            nameFocused = newStep == .name
+        }
+        .onAppear { nameFocused = step == .name }
         .fullScreenCover(isPresented: $isShowingCamera) {
             CameraPicker { coverImage = $0 }
                 .ignoresSafeArea()
@@ -98,7 +106,7 @@ struct CreateDropView: View {
         HStack(spacing: Spacing.xs) {
             ForEach(Step.allCases, id: \.rawValue) { s in
                 Capsule()
-                    .fill(s.rawValue <= step.rawValue ? Colors.accent : Colors.surfaceRaised)
+                    .fill(s.rawValue <= step.rawValue ? Colors.white : Colors.surfaceRaised)
                     .frame(height: 4)
             }
         }
@@ -107,7 +115,8 @@ struct CreateDropView: View {
 
     private var stepTitle: String {
         switch step {
-        case .details: "New Drop"
+        case .name: "New Drop"
+        case .date: "Opens on"
         case .invite: "Invite Friends"
         case .cover: "Add a Cover"
         }
@@ -122,7 +131,7 @@ struct CreateDropView: View {
                     .multilineTextAlignment(.center)
             }
             HStack(spacing: Spacing.md) {
-                if step != .details {
+                if step != .name {
                     Button {
                         withAnimation(.snappy) { goBack() }
                     } label: {
@@ -162,32 +171,40 @@ struct CreateDropView: View {
         .padding(.bottom, Spacing.lg)
     }
 
-    // MARK: Step 1 — details
+    // MARK: Step 1 — name
 
-    private var detailsStep: some View {
-        VStack(alignment: .leading, spacing: Spacing.xl) {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                fieldLabel("Name")
-                TextField("", text: $title, prompt: Text("What's this drop about?")
-                    .foregroundColor(Colors.textPlaceholder))
-                    .font(Typography.font(.body))
-                    .foregroundStyle(Colors.textPrimary)
-                    .padding(Spacing.md)
-                    .background(Colors.surfaceInput, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
-            }
+    private var nameStep: some View {
+        VStack(spacing: Spacing.lg) {
+            Text("Name your drop")
+                .font(Typography.font(.xl, weight: .strong))
+                .foregroundStyle(Colors.textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.top, Spacing.huge)
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                fieldLabel("Opens on")
-                DatePicker("", selection: $openDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.graphical)
-                    .tint(Colors.accent)
-                    .padding(Spacing.xs)
-                    .background(Colors.surface, in: RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
-            }
+            TextField("", text: $title, prompt: Text("Drop name").foregroundStyle(Colors.textPlaceholder))
+                .inputFieldStyle()
+                .padding(.top, Spacing.lg)
+                .textInputAutocapitalization(.words)
+                .focused($nameFocused)
+                .submitLabel(.next)
+                .onSubmit { if !trimmedTitle.isEmpty { withAnimation(.snappy) { goNext() } } }
         }
     }
 
-    // MARK: Step 2 — invite
+    // MARK: Step 2 — date
+
+    private var dateStep: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            fieldLabel("When does it open?")
+            DatePicker("", selection: $openDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                .datePickerStyle(.graphical)
+                .tint(Colors.white)
+                .padding(Spacing.xs)
+                .background(Colors.surface, in: RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
+        }
+    }
+
+    // MARK: Step 3 — invite
 
     @ViewBuilder
     private var inviteStep: some View {
@@ -221,7 +238,7 @@ struct CreateDropView: View {
                         FriendRow(profile: friend.profile) {
                             Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 22))
-                                .foregroundStyle(selected ? Colors.accent : Colors.textTertiary)
+                                .foregroundStyle(selected ? Colors.white : Colors.textTertiary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -230,7 +247,7 @@ struct CreateDropView: View {
         }
     }
 
-    // MARK: Step 3 — cover
+    // MARK: Step 4 — cover
 
     private var coverStep: some View {
         VStack(spacing: Spacing.lg) {

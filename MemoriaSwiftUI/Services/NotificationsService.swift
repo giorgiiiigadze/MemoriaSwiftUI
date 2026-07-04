@@ -30,6 +30,19 @@ final class NotificationsService {
             .value
     }
 
+    /// How many unread notifications the user has — for the Home bell's badge. Uses a head/count
+    /// request so no rows travel back. RLS scopes it to the caller; the explicit filters keep intent
+    /// clear and let the index do the work.
+    func unreadCount(userId: UUID) async throws -> Int {
+        let response = try await client
+            .from("notifications")
+            .select("*", head: true, count: .exact)
+            .eq("user_id", value: userId)
+            .eq("read", value: false)
+            .execute()
+        return response.count ?? 0
+    }
+
     /// Flags a single notification as read. Only the recipient may update it — enforced by the
     /// `notifications` table's row-level security, not here.
     func markRead(id: UUID) async throws {

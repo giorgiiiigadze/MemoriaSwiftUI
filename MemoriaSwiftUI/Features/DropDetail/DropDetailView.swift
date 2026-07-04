@@ -16,8 +16,8 @@ struct DropDetailView: View {
     private let photosService = PhotosService()
 
     @State private var drop: DropWithParticipants?
-    @State private var photos: [PhotoWithUploader] = []
-    @State private var photosLoaded = false
+    @State private var photos: [PhotoWithUploader]
+    @State private var photosLoaded: Bool
 
     @State private var isUploading = false
     @State private var isAccepting = false
@@ -29,7 +29,13 @@ struct DropDetailView: View {
 
     init(dropID: UUID, cachedDrop: DropWithParticipants? = nil) {
         self.dropID = dropID
-        _drop = State(initialValue: cachedDrop)
+        // Seed from whatever's available so the page paints instantly: a passed-in drop (from the
+        // Home feed) or the last-seen disk copy of the header and photos. The fresh fetch in
+        // `load()` still runs and overwrites these; the cache only bridges the gap before it lands.
+        _drop = State(initialValue: cachedDrop ?? DropDetailCache.loadDrop(dropID))
+        let cachedPhotos = DropDetailCache.loadPhotos(dropID)
+        _photos = State(initialValue: cachedPhotos ?? [])
+        _photosLoaded = State(initialValue: cachedPhotos != nil)
     }
 
     private var userID: UUID? { appState.profile?.id }
@@ -86,19 +92,29 @@ struct DropDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
+        .hidesTabBarWhenPushed()
         .toolbar {
-            if isCreator {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    ShareLink(item: shareText) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    if isCreator {
+                        Button {
+                            togglePin()
+                        } label: {
+                            Label(drop?.pinned == true ? "Unpin" : "Pin",
+                                  systemImage: drop?.pinned == true ? "pin.slash" : "pin")
+                        }
                         Button(role: .destructive) {
                             isConfirmingDelete = true
                         } label: {
                             Label("Delete Drop", systemImage: "trash")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
+                        .tint(Colors.error)
                     }
+                } label: {
+                    Image(systemName: "ellipsis")
                 }
             }
         }
@@ -248,8 +264,11 @@ struct DropDetailView: View {
             }
             .buttonStyle(.plain)
             .disabled(isUploading)
-            .padding(.bottom, Spacing.xl)
+            .padding(.bottom, Spacing.xxxl)
         }
+        // Anchor to the true bottom edge (past the reserved-but-hidden tab bar space) so it sits
+        // like a native bottom action, just above the home indicator — matching the accept bar.
+        .ignoresSafeArea(.container, edges: .bottom)
     }
 
     // MARK: Accept invite
@@ -276,8 +295,11 @@ struct DropDetailView: View {
             .buttonStyle(.plain)
             .disabled(isAccepting)
             .padding(.horizontal, Spacing.xl)
-            .padding(.bottom, Spacing.xl)
+            .padding(.bottom, Spacing.xxxl)
         }
+        // Anchor to the true bottom edge (past the reserved-but-hidden tab bar space) so it sits
+        // like a native bottom action, just above the home indicator.
+        .ignoresSafeArea(.container, edges: .bottom)
     }
 
     // MARK: Actions
@@ -295,8 +317,14 @@ struct DropDetailView: View {
     }
 
     private func load() async {
-        if let fetched = try? await dropsService.fetchDrop(id: dropID) { drop = fetched }
-        if let fetched = try? await photosService.fetchPhotos(dropID: dropID) { photos = fetched }
+        if let fetched = try? await dropsService.fetchDrop(id: dropID) {
+            drop = fetched
+            DropDetailCache.storeDrop(fetched)
+        }
+        if let fetched = try? await photosService.fetchPhotos(dropID: dropID) {
+            photos = fetched
+            DropDetailCache.storePhotos(fetched, for: dropID)
+        }
         photosLoaded = true
     }
 
@@ -322,7 +350,10 @@ struct DropDetailView: View {
         defer { isUploading = false }
         do {
             try await photosService.uploadPhoto(dropID: dropID, uploaderID: userID, image: image)
-            if let fetched = try? await photosService.fetchPhotos(dropID: dropID) { photos = fetched }
+            if let fetched = try? await photosService.fetchPhotos(dropID: dropID) {
+                photos = fetched
+                DropDetailCache.storePhotos(fetched, for: dropID)
+            }
         } catch {
             errorMessage = "Could not upload your photo. Please try again."
         }
@@ -334,6 +365,18 @@ struct DropDetailView: View {
         photos[index].isPinned = next
         photos.sort(by: PhotosService.ordering)
         Task { try? await photosService.setPinned(photoID: photo.id, pinned: next) }
+    }
+
+    /// Pin or unpin the whole drop (creator only). Flips it locally, then persists.
+    private func togglePin() {
+        guard drop != nil else { return }
+        let next = !(drop?.pinned ?? false)
+        drop?.isPinned = next
+        Task { try? await dropsService.setPinned(dropID: dropID, pinned: next) }
+    }
+
+    private var shareText: String {
+        "Check out \"\(drop?.title ?? "this drop")\" on Memoria\nhttps://memoria.app/drop/\(dropID.uuidString.lowercased())"
     }
 
     private func deleteDrop() {

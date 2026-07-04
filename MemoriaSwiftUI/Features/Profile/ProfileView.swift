@@ -11,6 +11,10 @@ struct ProfileView: View {
     @State private var isLoadingDrops: Bool
     @State private var friendsCount: Int
     @State private var invitedCount: Int
+    /// Drop whose detail page to push — driven by the card's "View drop" context-menu item.
+    @State private var viewingDrop: CalendarDrop?
+    /// Presents the Create Drop flow from the empty-state button.
+    @State private var isShowingCreateDrop = false
 
     private let service = DropsService()
     private let friendsService = FriendsService()
@@ -64,6 +68,9 @@ struct ProfileView: View {
                     }
                     .padding(.bottom, Spacing.xxxxl)
                 }
+                .navigationDestination(item: $viewingDrop) { drop in
+                    DropDetailView(dropID: drop.id)
+                }
             }
             .navigationTitle(profile.map { "@\($0.username)" } ?? "")
             .navigationBarTitleDisplayMode(.inline)
@@ -76,6 +83,11 @@ struct ProfileView: View {
                     }
                     .tint(Colors.textPrimary)
                 }
+            }
+        }
+        .sheet(isPresented: $isShowingCreateDrop) {
+            CreateDropView {
+                Task { await loadDrops(); await loadStats() }
             }
         }
         .preferredColorScheme(.dark)
@@ -102,13 +114,9 @@ struct ProfileView: View {
         if isLoadingDrops {
             dropSection(title: "All drops") { skeletonGrid }
         } else if drops.isEmpty {
-            dropSection(title: "All drops") {
-                Text("No drops yet")
-                    .font(Typography.font(.sm))
-                    .foregroundStyle(Colors.textSecondary)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.xxs)
-            }
+            emptyState(icon: "camera.viewfinder", title: "No drops yet",
+                       subtitle: "Create your first drop to start a memory.",
+                       actionTitle: "Create a drop") { isShowingCreateDrop = true }
         } else {
             VStack(alignment: .leading, spacing: Spacing.xl) {
                 if !pinnedDrops.isEmpty {
@@ -119,6 +127,38 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// Friendly empty state matching the Friends search's "No users found": an icon over a white
+    /// headline and a softer white suggestion line, centered and pushed down from the top.
+    private func emptyState(
+        icon: String,
+        title: String,
+        subtitle: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        VStack(spacing: Spacing.xxs) {
+            Image(systemName: icon)
+                .font(.system(size: 32, weight: .regular))
+                .foregroundStyle(Colors.white)
+                .padding(.bottom, Spacing.xxs)
+            Text(title)
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text(subtitle)
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white)
+                .multilineTextAlignment(.center)
+
+            if let actionTitle, let action {
+                CompactPillButton(title: actionTitle, action: action)
+                    .padding(.top, Spacing.md)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xxxxl)
+        .padding(.bottom, Spacing.xxxl)
     }
 
     /// A titled section (Calendar section-header style) wrapping some drops content.
@@ -143,9 +183,14 @@ struct ProfileView: View {
                 NavigationLink {
                     DropDetailView(dropID: drop.id)
                 } label: {
-                    MiniDropCard(drop: drop, onTogglePin: { togglePin(drop) })
+                    MiniDropCard(
+                        drop: drop,
+                        onTogglePin: { togglePin(drop) },
+                        onView: { viewingDrop = drop }
+                    )
                 }
                 .buttonStyle(.plain)
+                .onAppear { DropPrefetcher.shared.prefetch(dropID: drop.id) }
             }
         }
     }

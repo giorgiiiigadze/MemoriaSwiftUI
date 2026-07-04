@@ -41,7 +41,7 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: selection) {
-            HomeView(refreshToken: homeRefreshToken)
+            HomeView(refreshToken: homeRefreshToken, onOpenFriends: { selectedTab = .friends })
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(Tab.home)
 

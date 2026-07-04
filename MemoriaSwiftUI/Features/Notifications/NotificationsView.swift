@@ -7,16 +7,24 @@ import Supabase
 /// line, a relative timestamp, and the drop's thumbnail. Pull-to-refresh reloads; tapping a row
 /// marks it read. Mirrors the RN `NotificationsScreen`.
 struct NotificationsView: View {
+    /// Switches the app to the Friends tab — used when a friend notification is tapped, since that
+    /// lives in a different tab (not this Home navigation stack). Supplied by `MainTabView`.
+    var onOpenFriends: () -> Void = {}
+
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var notifications: [NotificationWithMeta]
     @State private var isLoaded: Bool
+    /// Drop to open when a drop-related notification is tapped.
+    @State private var navigatedDropID: UUID?
 
     private let service = NotificationsService()
 
     /// Seed from the disk cache so rows render instantly on open; only show the skeleton when
     /// nothing is cached yet (first ever open). The fresh fetch in `load()` still runs either way.
-    init() {
+    init(onOpenFriends: @escaping () -> Void = {}) {
+        self.onOpenFriends = onOpenFriends
         let cached = NotificationsCache.load() ?? []
         _notifications = State(initialValue: cached)
         _isLoaded = State(initialValue: !cached.isEmpty)
@@ -78,6 +86,10 @@ struct NotificationsView: View {
         }
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
+        .hidesTabBarWhenPushed()
+        .navigationDestination(item: $navigatedDropID) { dropID in
+            DropDetailView(dropID: dropID)
+        }
         .task { await load() }
     }
 
@@ -93,13 +105,24 @@ struct NotificationsView: View {
         }
     }
 
-    /// Optimistically flag the row read, then persist it. Mirrors the RN `markOneRead` + tap.
+    /// Handle a tap: optimistically mark it read (then persist), and act on it — a drop-related
+    /// notification opens that drop's detail page. Friend notifications carry no `dropId`, so they
+    /// just mark read for now. Mirrors the RN `markOneRead` + tap.
     private func tap(_ notification: NotificationWithMeta) {
-        guard !notification.read else { return }
-        if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
-            notifications[index].read = true
+        if !notification.read {
+            if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
+                notifications[index].read = true
+            }
+            Task { try? await service.markRead(id: notification.id) }
         }
-        Task { try? await service.markRead(id: notification.id) }
+        if let dropID = notification.dropId {
+            navigatedDropID = dropID
+        } else if notification.type == .friendRequest || notification.type == .friendAccepted {
+            // Friend activity lives in the Friends tab — jump there and pop this page so returning
+            // to Home lands on the feed, not a stale Notifications screen.
+            onOpenFriends()
+            dismiss()
+        }
     }
 }
 

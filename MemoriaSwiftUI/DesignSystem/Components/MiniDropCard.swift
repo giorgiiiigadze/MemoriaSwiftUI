@@ -8,6 +8,9 @@ struct MiniDropCard: View {
     /// Provided only when the drop is pinnable (the viewer owns it); when nil the context menu
     /// omits the Pin item. Toggles `drop.isPinned` — the parent persists and updates its list.
     var onTogglePin: (() -> Void)? = nil
+    /// Opens the drop's detail page; when nil the context menu omits the "View drop" item. The
+    /// parent drives navigation (tapping the card already navigates via its enclosing link).
+    var onView: (() -> Void)? = nil
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -42,6 +45,13 @@ struct MiniDropCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
         .contextMenu {
+            if let onView {
+                Button {
+                    onView()
+                } label: {
+                    Label("View drop", systemImage: "photo.on.rectangle")
+                }
+            }
             if let onTogglePin {
                 Button {
                     onTogglePin()

@@ -9,6 +9,8 @@ struct CalendarView: View {
     @State private var allDrops: [CalendarDrop]
     @State private var isLoading: Bool
     @State private var errorMessage: String?
+    /// Drop whose detail page to push — driven by the card's "View drop" context-menu item.
+    @State private var viewingDrop: CalendarDrop?
 
     private let service = DropsService()
 
@@ -93,10 +95,12 @@ struct CalendarView: View {
                                     } label: {
                                         MiniDropCard(
                                             drop: drop,
-                                            onTogglePin: drop.creatorId == currentUserID ? { togglePin(drop) } : nil
+                                            onTogglePin: drop.creatorId == currentUserID ? { togglePin(drop) } : nil,
+                                            onView: { viewingDrop = drop }
                                         )
                                     }
                                     .buttonStyle(.plain)
+                                    .onAppear { DropPrefetcher.shared.prefetch(dropID: drop.id) }
                                 }
                             }
                         }
@@ -104,6 +108,9 @@ struct CalendarView: View {
                 }
                 .padding(.top, Spacing.xs)
                 .padding(.bottom, Spacing.xxxxl)
+            }
+            .navigationDestination(item: $viewingDrop) { drop in
+                DropDetailView(dropID: drop.id)
             }
         }
     }
