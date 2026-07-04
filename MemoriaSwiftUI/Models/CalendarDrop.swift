@@ -10,6 +10,11 @@ struct CalendarDrop: Codable, Identifiable, Hashable, Sendable {
     let thumbnailURL: String?
     let createdAt: Date
     let creator: Creator?
+    /// Optional so drops cached before this field existed still decode; read via `pinned`.
+    var isPinned: Bool?
+
+    /// Whether the drop is pinned, treating a missing value as not pinned.
+    var pinned: Bool { isPinned ?? false }
 
     struct Creator: Codable, Hashable, Sendable {
         let username: String
@@ -38,5 +43,6 @@ struct CalendarDrop: Codable, Identifiable, Hashable, Sendable {
         case thumbnailURL = "thumbnail_url"
         case createdAt = "created_at"
         case creator
+        case isPinned = "is_pinned"
     }
 }

@@ -14,6 +14,11 @@ struct DropWithParticipants: Codable, Identifiable, Hashable, Sendable {
     let createdAt: Date
     let creator: ProfileRef?
     let participants: [Participant]
+    /// Optional so drops cached before this field existed still decode; read via `pinned`.
+    var isPinned: Bool?
+
+    /// Whether the drop is pinned, treating a missing value as not pinned.
+    var pinned: Bool { isPinned ?? false }
 
     /// A trimmed `profiles` row — just what an avatar + name label needs.
     struct ProfileRef: Codable, Hashable, Sendable {
@@ -65,5 +70,6 @@ struct DropWithParticipants: Codable, Identifiable, Hashable, Sendable {
         case createdAt = "created_at"
         case creator
         case participants
+        case isPinned = "is_pinned"
     }
 }

@@ -10,7 +10,7 @@ final class DropsService {
     func fetchCalendarDrops() async throws -> [CalendarDrop] {
         try await client
             .from("drops")
-            .select("id, creator_id, title, thumbnail_url, created_at, creator:profiles(username, display_name)")
+            .select("id, creator_id, title, thumbnail_url, created_at, is_pinned, creator:profiles(username, display_name)")
             .order("created_at", ascending: true)
             .execute()
             .value
@@ -21,7 +21,7 @@ final class DropsService {
     func fetchUserDrops(creatorId: UUID) async throws -> [CalendarDrop] {
         try await client
             .from("drops")
-            .select("id, creator_id, title, thumbnail_url, created_at, creator:profiles(username, display_name)")
+            .select("id, creator_id, title, thumbnail_url, created_at, is_pinned, creator:profiles(username, display_name)")
             .eq("creator_id", value: creatorId)
             .order("created_at", ascending: false)
             .execute()
@@ -34,7 +34,7 @@ final class DropsService {
     /// `profiles` relationships. The `\` continuations keep this one PostgREST select string
     /// with no embedded newlines.
     private static let feedSelect = """
-    id, creator_id, title, thumbnail_url, state, open_date, created_at, \
+    id, creator_id, title, thumbnail_url, state, open_date, created_at, is_pinned, \
     participants:drop_participants(id, user_id, status, has_uploaded, \
     profile:profiles!user_id(id, username, display_name, avatar_url)), \
     creator:profiles!creator_id(id, username, display_name, avatar_url)
@@ -103,6 +103,15 @@ final class DropsService {
             .eq("user_id", value: userID)
             .execute()
         return response.count ?? 0
+    }
+
+    /// Pin or unpin a drop. Only the creator may — enforced by the `drops` table's RLS.
+    func setPinned(dropID: UUID, pinned: Bool) async throws {
+        try await client
+            .from("drops")
+            .update(["is_pinned": pinned])
+            .eq("id", value: dropID)
+            .execute()
     }
 
     /// Permanently deletes a drop for everyone. Only the creator may delete — enforced by the

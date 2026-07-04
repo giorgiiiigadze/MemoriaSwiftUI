@@ -12,6 +12,8 @@ struct DropCard: View {
     /// Invoked after the user confirms deletion. The parent owns the feed list and the network
     /// delete so it can optimistically remove the row and roll back on failure.
     var onDelete: () -> Void = {}
+    /// Invoked when the creator toggles the pin. The parent updates the feed + persists.
+    var onTogglePin: () -> Void = {}
 
     @State private var isConfirmingDelete = false
     @State private var isShowingReportNotice = false
@@ -91,6 +93,14 @@ struct DropCard: View {
             ShareLink(item: shareText) {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
+            if isCreator {
+                Button {
+                    onTogglePin()
+                } label: {
+                    Label(drop.pinned ? "Unpin" : "Pin",
+                          systemImage: drop.pinned ? "pin.slash" : "pin")
+                }
+            }
             Button {
                 isShowingReportNotice = true
             } label: {
@@ -132,8 +142,22 @@ struct DropCard: View {
                         .padding(.bottom, Spacing.lg)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if drop.pinned { pinBadge }
+            }
             .background(Colors.surfaceDeep)
             .clipShape(RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
+    }
+
+    /// Same look as `MiniDropCard`'s pin badge — a white pin in a translucent dark circle — sized
+    /// up a touch for this larger card.
+    private var pinBadge: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(Colors.white)
+            .padding(7)
+            .background(.black.opacity(0.45), in: Circle())
+            .padding(Spacing.sm)
     }
 
     @ViewBuilder

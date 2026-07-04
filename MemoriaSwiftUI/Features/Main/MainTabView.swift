@@ -14,6 +14,8 @@ struct MainTabView: View {
 
     @State private var selectedTab: Tab = .home
     @State private var isShowingCreateDrop = false
+    /// Bumped after a drop is created to force the Home feed to refetch.
+    @State private var homeRefreshToken = 0
     /// The Profile tab icon rendered as a `UIImage` — a `.tabItem` can't host an `AsyncImage`
     /// or an arbitrary view. Holds either the fetched circular avatar or, when there's no
     /// photo, the same initials badge used elsewhere (`InitialAvatar`).
@@ -39,7 +41,7 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: selection) {
-            HomeView()
+            HomeView(refreshToken: homeRefreshToken)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(Tab.home)
 
@@ -71,7 +73,11 @@ struct MainTabView: View {
                 .tag(Tab.profile)
         }
         .sheet(isPresented: $isShowingCreateDrop) {
-            CreateDropView()
+            CreateDropView {
+                // Land on Home and force it to refetch so the new drop shows immediately.
+                selectedTab = .home
+                homeRefreshToken += 1
+            }
         }
         .task(id: [appState.profile?.avatarURL, avatarName]) {
             await loadAvatarIcon()

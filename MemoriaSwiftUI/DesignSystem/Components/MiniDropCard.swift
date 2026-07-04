@@ -5,6 +5,9 @@ import SwiftUI
 /// Profile drops grid — both render `CalendarDrop`s as a compact 3:4 tile.
 struct MiniDropCard: View {
     let drop: CalendarDrop
+    /// Provided only when the drop is pinnable (the viewer owns it); when nil the context menu
+    /// omits the Pin item. Toggles `drop.isPinned` — the parent persists and updates its list.
+    var onTogglePin: (() -> Void)? = nil
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -34,7 +37,36 @@ struct MiniDropCard: View {
         }
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
         .frame(maxWidth: .infinity)
+        .overlay(alignment: .topTrailing) {
+            if drop.pinned { pinBadge }
+        }
         .clipShape(RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+        .contextMenu {
+            if let onTogglePin {
+                Button {
+                    onTogglePin()
+                } label: {
+                    Label(drop.pinned ? "Unpin" : "Pin",
+                          systemImage: drop.pinned ? "pin.slash" : "pin")
+                }
+            }
+            ShareLink(item: shareText) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
+    private var pinBadge: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Colors.white)
+            .padding(5)
+            .background(.black.opacity(0.45), in: Circle())
+            .padding(Spacing.xxs)
+    }
+
+    private var shareText: String {
+        "Check out \"\(drop.title)\" on Memoria\nhttps://memoria.app/drop/\(drop.id.uuidString.lowercased())"
     }
 
     @ViewBuilder

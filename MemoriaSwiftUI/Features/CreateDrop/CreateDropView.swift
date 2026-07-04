@@ -5,6 +5,9 @@ import UIKit
 /// 1) name + open date, 2) invite friends, 3) take the cover photo. The final step creates the
 /// drop (upload cover → insert drop → invite participants) and dismisses.
 struct CreateDropView: View {
+    /// Called after a drop is successfully created, so the parent can refresh the Home feed.
+    var onCreated: () -> Void = {}
+
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
 
@@ -323,6 +326,7 @@ struct CreateDropView: View {
                     thumbnail: data,
                     invitedUserIDs: Array(selectedFriendIDs)
                 )
+                onCreated()
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

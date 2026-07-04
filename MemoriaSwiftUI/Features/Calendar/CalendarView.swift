@@ -4,11 +4,15 @@ import SwiftUI
 /// "mini drop cards" — the drop's thumbnail as the background with the creator's name and the
 /// drop's creation date overlaid.
 struct CalendarView: View {
+    @Environment(AppState.self) private var appState
+
     @State private var allDrops: [CalendarDrop]
     @State private var isLoading: Bool
     @State private var errorMessage: String?
 
     private let service = DropsService()
+
+    private var currentUserID: UUID? { appState.profile?.id }
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: Spacing.xxs),
@@ -84,7 +88,10 @@ struct CalendarView: View {
 
                             LazyVGrid(columns: columns, spacing: Spacing.xxs) {
                                 ForEach(section.drops) { drop in
-                                    MiniDropCard(drop: drop)
+                                    MiniDropCard(
+                                        drop: drop,
+                                        onTogglePin: drop.creatorId == currentUserID ? { togglePin(drop) } : nil
+                                    )
                                 }
                             }
                         }
@@ -94,6 +101,16 @@ struct CalendarView: View {
                 .padding(.bottom, Spacing.xxxxl)
             }
         }
+    }
+
+    /// Flip a drop's pinned state (creator-only). Updates in place — the badge reflects it; the
+    /// month grouping stays chronological.
+    private func togglePin(_ drop: CalendarDrop) {
+        guard let index = allDrops.firstIndex(where: { $0.id == drop.id }) else { return }
+        let newValue = !allDrops[index].pinned
+        allDrops[index].isPinned = newValue
+        CalendarDropsCache.store(allDrops)
+        Task { try? await service.setPinned(dropID: drop.id, pinned: newValue) }
     }
 
     private func load() async {
@@ -178,4 +195,5 @@ private struct CalendarSkeleton: View {
 
 #Preview {
     CalendarView()
+        .environment(AppState())
 }

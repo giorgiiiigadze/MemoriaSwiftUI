@@ -17,10 +17,15 @@ struct HomeView: View {
     /// Vertical gap between drop cards in the feed.
     private let feedSpacing: CGFloat = 35
 
+    /// Bumped by the parent (e.g. after creating a drop) to force the feed to refetch. Feeds the
+    /// `.task(id:)` below, which reruns whenever it changes.
+    var refreshToken: Int = 0
+
     /// Seed from the disk cache so a returning user sees their feed instantly; only fall back to
     /// the spinner when nothing is cached yet (first ever open). The fresh fetch in `load()` still
     /// runs either way.
-    init() {
+    init(refreshToken: Int = 0) {
+        self.refreshToken = refreshToken
         let cached = HomeDropsCache.load() ?? []
         _drops = State(initialValue: cached)
         _isLoading = State(initialValue: cached.isEmpty)
@@ -59,7 +64,8 @@ struct HomeView: View {
             .tint(Colors.textPrimary)
         }
         .preferredColorScheme(.dark)
-        .task { await load() }
+        // Reruns on first appear and whenever `refreshToken` changes (e.g. after a drop is created).
+        .task(id: refreshToken) { await load() }
         .alert("Delete Failed", isPresented: $didDeleteFail) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -80,7 +86,8 @@ struct HomeView: View {
                         DropCard(
                             drop: drop,
                             currentUserID: currentUserID,
-                            onDelete: { delete(drop) }
+                            onDelete: { delete(drop) },
+                            onTogglePin: { togglePin(drop) }
                         )
                     }
                 }
@@ -138,6 +145,15 @@ struct HomeView: View {
                 didDeleteFail = true
             }
         }
+    }
+
+    /// Flip a drop's pinned state (creator-only), optimistically updating the feed + cache.
+    private func togglePin(_ drop: DropWithParticipants) {
+        guard let index = drops.firstIndex(where: { $0.id == drop.id }) else { return }
+        let newValue = !drops[index].pinned
+        drops[index].isPinned = newValue
+        HomeDropsCache.store(drops)
+        Task { try? await service.setPinned(dropID: drop.id, pinned: newValue) }
     }
 }
 

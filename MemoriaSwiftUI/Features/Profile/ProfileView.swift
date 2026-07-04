@@ -9,8 +9,8 @@ struct ProfileView: View {
 
     @State private var drops: [CalendarDrop]
     @State private var isLoadingDrops: Bool
-    @State private var friendsCount = 0
-    @State private var invitedCount = 0
+    @State private var friendsCount: Int
+    @State private var invitedCount: Int
 
     private let service = DropsService()
     private let friendsService = FriendsService()
@@ -26,6 +26,10 @@ struct ProfileView: View {
         let cached = ProfileDropsCache.load() ?? []
         _drops = State(initialValue: cached)
         _isLoadingDrops = State(initialValue: cached.isEmpty)
+
+        let stats = ProfileStatsCache.load()
+        _friendsCount = State(initialValue: stats?.friends ?? 0)
+        _invitedCount = State(initialValue: stats?.invited ?? 0)
     }
 
     private var profile: Profile? { appState.profile }
@@ -89,41 +93,65 @@ struct ProfileView: View {
         .frame(maxWidth: 300)
     }
 
-    /// The "All drops" header (Calendar section style) above the user's drops grid.
+    private var pinnedDrops: [CalendarDrop] { drops.filter(\.pinned) }
+    private var unpinnedDrops: [CalendarDrop] { drops.filter { !$0.pinned } }
+
+    /// A "Pinned" section (when any are pinned) above the "All drops" grid.
+    @ViewBuilder
     private var dropsSection: some View {
+        if isLoadingDrops {
+            dropSection(title: "All drops") { skeletonGrid }
+        } else if drops.isEmpty {
+            dropSection(title: "All drops") {
+                Text("No drops yet")
+                    .font(Typography.font(.sm))
+                    .foregroundStyle(Colors.textSecondary)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.xxs)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                if !pinnedDrops.isEmpty {
+                    dropSection(title: "Pinned") { grid(pinnedDrops) }
+                }
+                if !unpinnedDrops.isEmpty {
+                    dropSection(title: "All drops") { grid(unpinnedDrops) }
+                }
+            }
+        }
+    }
+
+    /// A titled section (Calendar section-header style) wrapping some drops content.
+    private func dropSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("All drops")
+            Text(title)
                 .font(Typography.font(.lg, weight: .strong))
                 .foregroundStyle(Colors.textPrimary)
                 .padding(.horizontal, Spacing.lg)
 
-            dropsContent
+            content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private var dropsContent: some View {
-        if isLoadingDrops {
-            // Shimmering placeholders in the exact grid the real cards use, so the swap to loaded
-            // content doesn't shift anything.
-            LazyVGrid(columns: columns, spacing: Spacing.xxs) {
-                ForEach(0..<6, id: \.self) { _ in
-                    SkeletonBlock(cornerRadius: Radii.md)
-                        .aspectRatio(3.0 / 4.0, contentMode: .fit)
-                }
+    private func grid(_ items: [CalendarDrop]) -> some View {
+        LazyVGrid(columns: columns, spacing: Spacing.xxs) {
+            ForEach(items) { drop in
+                MiniDropCard(drop: drop, onTogglePin: { togglePin(drop) })
             }
-        } else if drops.isEmpty {
-            Text("No drops yet")
-                .font(Typography.font(.sm))
-                .foregroundStyle(Colors.textSecondary)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.xxs)
-        } else {
-            LazyVGrid(columns: columns, spacing: Spacing.xxs) {
-                ForEach(drops) { drop in
-                    MiniDropCard(drop: drop)
-                }
+        }
+    }
+
+    /// Shimmering placeholders in the exact grid the real cards use, so the swap to loaded content
+    /// doesn't shift anything.
+    private var skeletonGrid: some View {
+        LazyVGrid(columns: columns, spacing: Spacing.xxs) {
+            ForEach(0..<6, id: \.self) { _ in
+                SkeletonBlock(cornerRadius: Radii.md)
+                    .aspectRatio(3.0 / 4.0, contentMode: .fit)
             }
         }
     }
@@ -136,14 +164,23 @@ struct ProfileView: View {
         defer { isLoadingDrops = false }
         if let fetched = try? await service.fetchUserDrops(creatorId: id) {
             drops = fetched
-            ProfileDropsCache.store(fetched)
+            ProfileDropsCache.store(drops)
         }
+    }
+
+    private func togglePin(_ drop: CalendarDrop) {
+        guard let index = drops.firstIndex(where: { $0.id == drop.id }) else { return }
+        let newValue = !drops[index].pinned
+        drops[index].isPinned = newValue
+        ProfileDropsCache.store(drops)
+        Task { try? await service.setPinned(dropID: drop.id, pinned: newValue) }
     }
 
     private func loadStats() async {
         guard let id = profile?.id else { return }
         if let count = try? await friendsService.friendCount(userID: id) { friendsCount = count }
         if let count = try? await service.invitedDropCount(userID: id) { invitedCount = count }
+        ProfileStatsCache.store(friends: friendsCount, invited: invitedCount)
     }
 }
 
