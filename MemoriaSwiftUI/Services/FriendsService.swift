@@ -40,7 +40,7 @@ final class FriendsService {
             guard let other = iAmRequester ? row.addressee : row.requester else { continue }
             switch row.status {
             case .accepted:
-                result.friends.append(Friend(profile: other, since: row.updatedAt))
+                result.friends.append(Friend(friendshipID: row.id, profile: other, since: row.updatedAt))
             case .pending:
                 let request = FriendRequest(friendshipID: row.id, profile: other)
                 if iAmRequester { result.outgoing.append(request) } else { result.incoming.append(request) }
@@ -65,6 +65,16 @@ final class FriendsService {
             .limit(20)
             .execute()
             .value
+    }
+
+    /// Remove a friendship entirely. Either party may delete their accepted friendship (RLS allows
+    /// both the requester and the addressee), so the pair can friend again later.
+    func unfriend(friendshipID: UUID) async throws {
+        try await client
+            .from("friendships")
+            .delete()
+            .eq("id", value: friendshipID)
+            .execute()
     }
 
     /// Accept a received request — only the addressee may, enforced by RLS.

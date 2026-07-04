@@ -25,7 +25,9 @@ enum Colors {
     static let blueNotif = Color(hex: 0x3D8EFF)
     static let primary = Color(hex: 0x0044FF)
     static let success = Color(hex: 0x4CAF7D)
-    static let error = Color(hex: 0xEA4942)
+    // The adaptive system red, matching what `Button(role: .destructive)` uses, so error text and
+    // destructive actions read as the same red.
+    static let error = Color.red
     static let warning = Color(hex: 0xF59E0B)
 
     static let ink = Color(hex: 0x000000)

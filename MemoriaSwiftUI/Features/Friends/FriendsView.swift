@@ -20,6 +20,8 @@ struct FriendsView: View {
     @State private var suggested: [SuggestedProfile] = []
     @State private var addedIDs: Set<UUID> = []
     @State private var actionInProgress = false
+    /// The friend pending an unfriend confirmation; non-nil drives the confirmation alert.
+    @State private var friendToUnfriend: Friend?
 
     private let service = FriendsService()
     private let contactsService = ContactsMatchingService()
@@ -82,6 +84,17 @@ struct FriendsView: View {
         // Debounced search: re-runs whenever the query changes; the sleep is cancelled if it
         // changes again before firing.
         .task(id: query) { await runSearch() }
+        .alert(
+            "Remove friend?",
+            isPresented: Binding(get: { friendToUnfriend != nil },
+                                 set: { if !$0 { friendToUnfriend = nil } }),
+            presenting: friendToUnfriend
+        ) { friend in
+            Button("Unfriend", role: .destructive) { unfriend(friend) }
+            Button("Cancel", role: .cancel) {}
+        } message: { friend in
+            Text("You'll no longer be friends with \(friend.profile.name).")
+        }
     }
 
     // MARK: Search results
@@ -92,7 +105,7 @@ struct FriendsView: View {
             if isSearching {
                 ForEach(0..<3, id: \.self) { _ in FriendRowSkeleton() }
             } else if searchResults.isEmpty {
-                emptyText("No users found.")
+                searchEmptyState
             } else {
                 ForEach(searchResults, id: \.id) { profile in
                     FriendRow(profile: profile) { chip(for: profile) }
@@ -189,13 +202,24 @@ struct FriendsView: View {
     private var friendsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             if connections.friends.isEmpty {
-                emptyText("No friends yet.\nSearch for people to add.")
+                emptyState(icon: "person.2.fill", title: "No friends yet",
+                           subtitle: "Search for people to add.")
             } else {
-                if !visibleSuggested.isEmpty || !connections.incoming.isEmpty {
-                    sectionLabel("Your friends")
-                }
+                sectionLabel("Friends")
                 ForEach(connections.friends) { friend in
-                    FriendRow(profile: friend.profile, since: friend.since)
+                    FriendRow(profile: friend.profile, since: friend.since) {
+                        Button {
+                            friendToUnfriend = friend
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Colors.textTertiary)
+                                .frame(width: 30, height: 30)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(actionInProgress)
+                    }
                 }
             }
         }
@@ -225,21 +249,38 @@ struct FriendsView: View {
 
     // MARK: Building blocks
 
+    /// Section header styled like the Calendar's month titles: large and near-white.
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(Typography.font(.sm, weight: .semiBold))
-            .foregroundStyle(Colors.white)
-            .padding(.top, Spacing.md)
+            .font(Typography.font(.lg, weight: .semiBold))
+            .foregroundStyle(Colors.textPrimary)
             .padding(.bottom, Spacing.xs)
     }
 
-    private func emptyText(_ text: String) -> some View {
-        Text(text)
-            .font(Typography.font(.sm))
-            .foregroundStyle(Colors.textTertiary)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.xxl)
+    private var searchEmptyState: some View {
+        emptyState(icon: "person.2.fill", title: "No users found",
+                   subtitle: "Try a different username.")
+    }
+
+    /// Friendly empty state: an icon over a white headline and a softer suggestion line, pushed
+    /// down from the top. Shared by the search-no-results and no-friends states.
+    private func emptyState(icon: String, title: String, subtitle: String) -> some View {
+        VStack(spacing: Spacing.xxs) {
+            Image(systemName: icon)
+                .font(.system(size: 32, weight: .regular))
+                .foregroundStyle(Colors.white)
+                .padding(.bottom, Spacing.xxs)
+            Text(title)
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text(subtitle)
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xxxxl)
+        .padding(.bottom, Spacing.xxxl)
     }
 
     private var myName: String {
@@ -334,9 +375,23 @@ struct FriendsView: View {
         actionInProgress = true
         // Optimistically move the request into the friends list.
         connections.incoming.removeAll { $0.id == request.id }
-        connections.friends.insert(Friend(profile: request.profile, since: Date()), at: 0)
+        connections.friends.insert(
+            Friend(friendshipID: request.friendshipID, profile: request.profile, since: Date()),
+            at: 0
+        )
         Task {
             try? await service.accept(friendshipID: request.friendshipID)
+            actionInProgress = false
+            await load()
+        }
+    }
+
+    private func unfriend(_ friend: Friend) {
+        guard !actionInProgress else { return }
+        actionInProgress = true
+        connections.friends.removeAll { $0.id == friend.id }
+        Task {
+            try? await service.unfriend(friendshipID: friend.friendshipID)
             actionInProgress = false
             await load()
         }

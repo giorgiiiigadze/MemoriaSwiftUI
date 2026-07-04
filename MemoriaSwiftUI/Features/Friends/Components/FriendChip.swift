@@ -48,7 +48,7 @@ struct FriendChip: View {
     private var background: Color {
         switch variant {
         case .white: Colors.white
-        case .green: Colors.success
+        case .green: Color.green
         case .muted: Colors.surfaceRaised
         case .card: Colors.surfaceCard
         }

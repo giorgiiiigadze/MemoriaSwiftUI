@@ -102,6 +102,8 @@ struct DropCard: View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                // Force red so the trash icon is red too (the app-wide `.tint` otherwise colors it).
+                .tint(Color.red)
             }
         } label: {
             // A 44×44 hit target with the ellipsis centred, matching the RN menu host.

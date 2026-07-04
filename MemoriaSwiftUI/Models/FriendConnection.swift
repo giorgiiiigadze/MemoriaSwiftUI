@@ -9,8 +9,10 @@ struct FriendConnections: Sendable, Hashable {
     var outgoing: [FriendRequest] = []
 }
 
-/// An accepted friend: the other person's profile plus when the friendship was established.
+/// An accepted friend: the other person's profile, when the friendship was established, and the
+/// friendship row id (needed to unfriend).
 struct Friend: Identifiable, Sendable, Hashable {
+    let friendshipID: UUID
     let profile: DropWithParticipants.ProfileRef
     let since: Date
     var id: UUID { profile.id }
