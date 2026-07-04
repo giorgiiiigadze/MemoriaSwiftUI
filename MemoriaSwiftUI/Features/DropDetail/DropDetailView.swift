@@ -225,20 +225,29 @@ struct DropDetailView: View {
         VStack(spacing: Spacing.xxs) {
             Image(systemName: "photo.on.rectangle.angled")
                 .font(.system(size: 32))
-                .foregroundStyle(Colors.textSecondary)
+                .foregroundStyle(Colors.white)
                 .padding(.bottom, Spacing.xxs)
-            Text(emptyMessage)
+            Text(emptyTitle)
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text(emptySubtitle)
                 .font(Typography.font(.sm))
-                .foregroundStyle(Colors.textSecondary)
+                .foregroundStyle(Colors.white)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, Spacing.xxl)
+        .padding(.top, Spacing.xxxxl)
         .padding(.horizontal, Spacing.xl)
     }
 
-    private var emptyMessage: String {
-        if isLocked && canUpload { return "Be the first to add a photo using the camera below." }
+    private var emptyTitle: String {
+        if isLocked && canUpload { return "Be the first" }
+        if isLocked { return "No photos yet" }
+        return "Nothing was shared"
+    }
+
+    private var emptySubtitle: String {
+        if isLocked && canUpload { return "Add a photo using the camera below." }
         if isLocked { return "Participants haven't uploaded anything yet." }
         return "No photos were uploaded before this drop closed."
     }

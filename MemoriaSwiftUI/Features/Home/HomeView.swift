@@ -58,13 +58,17 @@ struct HomeView: View {
                     NavigationLink {
                         NotificationsView(onOpenFriends: onOpenFriends)
                     } label: {
-                        // Bell + badge in a padded ZStack so the badge sits at the corner *inside*
-                        // the label's bounds — a negative overlay offset gets clipped by the toolbar.
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell.fill")
-                                .padding(.top, Spacing.xs)
-                                .padding(.trailing, Spacing.xs)
-                            if unreadCount > 0 { unreadBadge }
+                        // Native badged bell: the dot is part of the SF Symbol, so it stays centered
+                        // and never clips. Palette tints the badge red and keeps the bell primary;
+                        // the plain (no-unread) bell keeps its default toolbar tint.
+                        Group {
+                            if unreadCount > 0 {
+                                Image(systemName: "bell.badge.fill")
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(Colors.error, Colors.textPrimary)
+                            } else {
+                                Image(systemName: "bell.fill")
+                            }
                         }
                         .accessibilityLabel(unreadCount > 0
                             ? "Notifications, \(unreadCount) unread"
@@ -94,18 +98,6 @@ struct HomeView: View {
         } message: {
             Text("Could not delete the drop. Please try again.")
         }
-    }
-
-    /// Red count pill on the bell — capped at "99+", ringed in the background colour so it reads
-    /// cleanly over the toolbar.
-    private var unreadBadge: some View {
-        Text(unreadCount > 99 ? "99+" : "\(unreadCount)")
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(Colors.white)
-            .padding(.horizontal, 5)
-            .frame(minWidth: 18, minHeight: 18)
-            .background(Colors.error, in: Capsule())
-            .overlay(Capsule().stroke(Colors.background, lineWidth: 2))
     }
 
     @ViewBuilder
