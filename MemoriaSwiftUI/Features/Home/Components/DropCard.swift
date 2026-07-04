@@ -39,7 +39,12 @@ struct DropCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             header
-            photo
+            NavigationLink {
+                DropDetailView(dropID: drop.id, cachedDrop: drop)
+            } label: {
+                photo
+            }
+            .buttonStyle(.plain)
         }
         // These presentation modifiers live on the card's root, not on the `Menu`: attached to a
         // `Menu` (inside the recycled feed `LazyVStack`) they silently fail to present, so the
@@ -163,21 +168,12 @@ struct DropCard: View {
     @ViewBuilder
     private var thumbnail: some View {
         if let urlString = drop.thumbnailURL, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    // `cover` fit: fill the 3:4 frame and let the surrounding `clipShape` crop.
-                    image.resizable().scaledToFill()
-                case .empty:
-                    ZStack {
-                        Colors.surfaceDeep
-                        ProgressView().tint(Colors.textTertiary)
-                    }
-                case .failure:
-                    placeholder
-                @unknown default:
-                    Colors.surfaceDeep
-                }
+            CachedImage(url: url) { image in
+                // `cover` fit: fill the 3:4 frame and let the surrounding `clipShape` crop.
+                image.resizable().scaledToFill()
+            } placeholder: {
+                // Cached photos render instantly; a real miss shows the neutral surface briefly.
+                Colors.surfaceDeep
             }
         } else {
             placeholder

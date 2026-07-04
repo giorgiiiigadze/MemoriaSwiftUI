@@ -40,6 +40,17 @@ final class DropsService {
     creator:profiles!creator_id(id, username, display_name, avatar_url)
     """
 
+    /// A single drop with its creator + participants embedded — the Drop Detail page's header.
+    func fetchDrop(id: UUID) async throws -> DropWithParticipants {
+        try await client
+            .from("drops")
+            .select(Self.feedSelect)
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .value
+    }
+
     /// All drops for the Home feed, newest first, each with its creator + participants embedded.
     func fetchDrops() async throws -> [DropWithParticipants] {
         try await client
@@ -103,6 +114,18 @@ final class DropsService {
             .eq("user_id", value: userID)
             .execute()
         return response.count ?? 0
+    }
+
+    /// Accept a drop invitation — flips the caller's own `drop_participants` row to `accepted`, which
+    /// is what unlocks seeing the drop's photos (the `photos` RLS requires accepted status). RLS lets
+    /// a user update their own participant row.
+    func acceptInvite(dropID: UUID, userID: UUID) async throws {
+        try await client
+            .from("drop_participants")
+            .update(["status": ParticipantStatus.accepted.rawValue])
+            .eq("drop_id", value: dropID)
+            .eq("user_id", value: userID)
+            .execute()
     }
 
     /// Pin or unpin a drop. Only the creator may — enforced by the `drops` table's RLS.

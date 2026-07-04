@@ -88,10 +88,15 @@ struct CalendarView: View {
 
                             LazyVGrid(columns: columns, spacing: Spacing.xxs) {
                                 ForEach(section.drops) { drop in
-                                    MiniDropCard(
-                                        drop: drop,
-                                        onTogglePin: drop.creatorId == currentUserID ? { togglePin(drop) } : nil
-                                    )
+                                    NavigationLink {
+                                        DropDetailView(dropID: drop.id)
+                                    } label: {
+                                        MiniDropCard(
+                                            drop: drop,
+                                            onTogglePin: drop.creatorId == currentUserID ? { togglePin(drop) } : nil
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }

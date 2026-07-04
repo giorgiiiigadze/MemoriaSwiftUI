@@ -72,25 +72,15 @@ struct MiniDropCard: View {
     @ViewBuilder
     private var thumbnail: some View {
         if let urlString = drop.thumbnailURL, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    // Fit (not fill) so the whole photo is visible; the surface backing fills
-                    // any letterbox gap for non-3:4 thumbnails.
-                    ZStack {
-                        placeholderFill
-                        image.resizable().scaledToFit()
-                    }
-                case .empty:
-                    ZStack {
-                        placeholderFill
-                        ProgressView().tint(Colors.textTertiary)
-                    }
-                case .failure:
-                    placeholderContent
-                @unknown default:
+            CachedImage(url: url) { image in
+                // Fit (not fill) so the whole photo is visible; the surface backing fills any
+                // letterbox gap for non-3:4 thumbnails.
+                ZStack {
                     placeholderFill
+                    image.resizable().scaledToFit()
                 }
+            } placeholder: {
+                placeholderFill
             }
         } else {
             placeholderContent

@@ -140,7 +140,12 @@ struct ProfileView: View {
     private func grid(_ items: [CalendarDrop]) -> some View {
         LazyVGrid(columns: columns, spacing: Spacing.xxs) {
             ForEach(items) { drop in
-                MiniDropCard(drop: drop, onTogglePin: { togglePin(drop) })
+                NavigationLink {
+                    DropDetailView(dropID: drop.id)
+                } label: {
+                    MiniDropCard(drop: drop, onTogglePin: { togglePin(drop) })
+                }
+                .buttonStyle(.plain)
             }
         }
     }
