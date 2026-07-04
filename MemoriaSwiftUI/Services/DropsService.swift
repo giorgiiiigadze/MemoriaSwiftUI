@@ -16,6 +16,18 @@ final class DropsService {
             .value
     }
 
+    /// Drops created by a single user, newest first — the Profile tab's "All drops" grid. Same
+    /// trimmed shape as the Calendar cards so both render `CalendarDrop`s through `MiniDropCard`.
+    func fetchUserDrops(creatorId: UUID) async throws -> [CalendarDrop] {
+        try await client
+            .from("drops")
+            .select("id, creator_id, title, thumbnail_url, created_at, creator:profiles(username, display_name)")
+            .eq("creator_id", value: creatorId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
     /// The columns the Home feed's `DropCard` needs: the drop, its participants (each with a
     /// trimmed profile), and its creator's profile — all embedded through foreign keys so the
     /// feed is one round-trip. The `!user_id` / `!creator_id` hints disambiguate the two

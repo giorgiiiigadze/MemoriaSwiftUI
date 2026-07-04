@@ -19,6 +19,10 @@ struct DropCard: View {
     private let avatarSize: CGFloat = 34
     /// Header inset (RN `SIDE`); the photo itself stays full-bleed.
     private let side: CGFloat = 10
+    /// Square tap target around the ellipsis menu (Apple's 44pt minimum).
+    private let menuHitTarget: CGFloat = 44
+    /// Size of the picture glyph shown when a drop has no thumbnail.
+    private let placeholderGlyphSize: CGFloat = 32
 
     private var creatorName: String? { showCreator ? drop.creator?.name : nil }
     private var primary: String { creatorName ?? drop.title }
@@ -34,6 +38,24 @@ struct DropCard: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             header
             photo
+        }
+        // These presentation modifiers live on the card's root, not on the `Menu`: attached to a
+        // `Menu` (inside the recycled feed `LazyVStack`) they silently fail to present, so the
+        // Report/Delete actions would toggle their state but nothing would appear.
+        .confirmationDialog(
+            "Delete Drop",
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive, action: onDelete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\"\(drop.title)\" will be permanently deleted for everyone.")
+        }
+        .alert("Coming soon", isPresented: $isShowingReportNotice) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Reporting will be available in a future update.")
         }
     }
 
@@ -86,23 +108,8 @@ struct DropCard: View {
             Image(systemName: "ellipsis")
                 .font(Typography.font(.lg, weight: .semiBold))
                 .foregroundStyle(Colors.white)
-                .frame(width: 44, height: 44)
+                .frame(width: menuHitTarget, height: menuHitTarget)
                 .contentShape(Rectangle())
-        }
-        .confirmationDialog(
-            "Delete Drop",
-            isPresented: $isConfirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive, action: onDelete)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("\"\(drop.title)\" will be permanently deleted for everyone.")
-        }
-        .alert("Coming soon", isPresented: $isShowingReportNotice) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Reporting will be available in a future update.")
         }
     }
 
@@ -156,7 +163,7 @@ struct DropCard: View {
         ZStack {
             Colors.surfaceDeep
             Image(systemName: "photo")
-                .font(.system(size: 32))
+                .font(.system(size: placeholderGlyphSize))
                 .foregroundStyle(Colors.borderDefault)
         }
     }

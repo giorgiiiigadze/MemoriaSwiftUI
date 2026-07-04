@@ -4,25 +4,9 @@ import SwiftUI
 /// "mini drop cards" — the drop's thumbnail as the background with the creator's name and the
 /// drop's creation date overlaid.
 struct CalendarView: View {
-    /// The two halves of the library this screen fronts. Only Calendar has real content today;
-    /// Memories is a placeholder so the header toggle is live and switchable while that grid is
-    /// still being built.
-    private enum LibraryTab: Hashable, CaseIterable {
-        case memories, calendar
-        var title: String {
-            switch self {
-            case .memories: "Memories"
-            case .calendar: "Calendar"
-            }
-        }
-    }
-
     @State private var allDrops: [CalendarDrop]
     @State private var isLoading: Bool
     @State private var errorMessage: String?
-    /// Defaults to Calendar since this screen *is* the Calendar tab; tapping Memories swaps the
-    /// body to its placeholder.
-    @State private var libraryTab: LibraryTab = .calendar
 
     private let service = DropsService()
 
@@ -49,60 +33,20 @@ struct CalendarView: View {
         NavigationStack {
             ZStack {
                 Colors.background.ignoresSafeArea()
-                VStack(spacing: Spacing.zero) {
-                    header
-                    // A paged `TabView` bound to the same selection as the picker, so a horizontal
-                    // swipe pages between the two sections and the segmented control follows — and
-                    // vice-versa (tapping the picker slides the page). Pages are ordered to match
-                    // the picker: Memories on the left, Calendar on the right.
-                    TabView(selection: $libraryTab) {
-                        memoriesPlaceholder.tag(LibraryTab.memories)
-                        content.tag(LibraryTab.calendar)
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
+                content
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Calendar")
+                        .font(Typography.font(.xl, weight: .strong))
+                        .foregroundStyle(Colors.textPrimary)
                 }
             }
-            // Custom header row replaces the nav-bar title, so hide the bar itself.
-            .toolbar(.hidden, for: .navigationBar)
             .tint(Colors.textPrimary)
         }
         .preferredColorScheme(.dark)
         .task { await load() }
-    }
-
-    /// Library header: the Memories/Calendar toggle, leading-aligned.
-    ///
-    /// The toggle is a native `Picker` in `.segmented` style — a real `UISegmentedControl` — so it
-    /// gets the system's own sliding animation, selection haptic, and dark-mode chrome for free
-    /// (the screen already forces `.preferredColorScheme(.dark)`). `.fixedSize()` stops it from
-    /// stretching full width so it hugs its labels, and the trailing `Spacer` keeps it leading.
-    private var header: some View {
-        HStack {
-            Picker("Library section", selection: $libraryTab) {
-                ForEach(LibraryTab.allCases, id: \.self) { tab in
-                    Text(tab.title).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-    }
-
-    /// Stand-in shown while the real Memories grid doesn't exist yet, so the toggle is visibly
-    /// live rather than switching to a blank screen.
-    private var memoriesPlaceholder: some View {
-        VStack {
-            Spacer()
-            Text("Memories coming soon")
-                .font(Typography.font(.md, weight: .medium))
-                .foregroundStyle(Colors.textSecondary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -229,37 +173,6 @@ private struct CalendarSkeleton: View {
         }
         .scrollDisabled(true)
         .allowsHitTesting(false)
-    }
-}
-
-/// A rounded surface block with a highlight sweeping across it — the shimmer used by the skeleton.
-private struct SkeletonBlock: View {
-    var cornerRadius: CGFloat = Radii.md
-
-    @State private var phase: CGFloat = 0
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Colors.surfaceRaised)
-            .overlay {
-                GeometryReader { geo in
-                    let width = geo.size.width
-                    LinearGradient(
-                        colors: [.clear, Colors.white.opacity(0.10), .clear],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: width)
-                    // Sweep the highlight from just off the left edge to just off the right.
-                    .offset(x: -width + phase * (2 * width))
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .onAppear {
-                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
     }
 }
 

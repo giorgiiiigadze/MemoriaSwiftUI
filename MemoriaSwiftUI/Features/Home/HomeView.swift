@@ -14,6 +14,9 @@ struct HomeView: View {
 
     private let service = DropsService()
 
+    /// Vertical gap between drop cards in the feed.
+    private let feedSpacing: CGFloat = 35
+
     /// Seed from the disk cache so a returning user sees their feed instantly; only fall back to
     /// the spinner when nothing is cached yet (first ever open). The fresh fetch in `load()` still
     /// runs either way.
@@ -71,8 +74,8 @@ struct HomeView: View {
         } else if drops.isEmpty {
             emptyState
         } else {
-            ScrollView {
-                LazyVStack(spacing: Spacing.xxxl) {
+            RefreshableGridScrollView(onRefresh: { await load() }) {
+                LazyVStack(spacing: feedSpacing) {
                     ForEach(drops) { drop in
                         DropCard(
                             drop: drop,

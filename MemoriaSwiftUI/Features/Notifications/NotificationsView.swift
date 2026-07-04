@@ -1,78 +1,267 @@
 import SwiftUI
+import Supabase
 
 /// Pushed natively from the Home header's bell button (native slide-from-right + back button).
-/// Lists the user's notifications; shows a native empty state until the feed is wired to Supabase.
+/// Lists the current user's notifications, split into Today / Earlier sections, each row showing
+/// the actor's avatar (a stacked dual avatar for drop invites from someone else), the activity
+/// line, a relative timestamp, and the drop's thumbnail. Pull-to-refresh reloads; tapping a row
+/// marks it read. Mirrors the RN `NotificationsScreen`.
 struct NotificationsView: View {
-    /// Real notifications will replace this once the fetch service lands.
-    private let notifications: [AppNotification] = []
+    @Environment(AppState.self) private var appState
+
+    @State private var notifications: [NotificationWithMeta]
+    @State private var isLoaded: Bool
+
+    private let service = NotificationsService()
+
+    /// Seed from the disk cache so rows render instantly on open; only show the skeleton when
+    /// nothing is cached yet (first ever open). The fresh fetch in `load()` still runs either way.
+    init() {
+        let cached = NotificationsCache.load() ?? []
+        _notifications = State(initialValue: cached)
+        _isLoaded = State(initialValue: !cached.isEmpty)
+    }
+
+    private var currentUserID: UUID? { appState.session?.user.id }
+
+    /// Today's notifications first, then everything older — only non-empty sections are kept.
+    private var sections: [(title: String, items: [NotificationWithMeta])] {
+        let today = notifications.filter(\.isToday)
+        let earlier = notifications.filter { !$0.isToday }
+        var result: [(String, [NotificationWithMeta])] = []
+        if !today.isEmpty { result.append(("Today", today)) }
+        if !earlier.isEmpty { result.append(("Earlier", earlier)) }
+        return result
+    }
 
     var body: some View {
         ZStack {
             Colors.background.ignoresSafeArea()
 
-            if notifications.isEmpty {
+            if !isLoaded {
+                NotificationsSkeleton()
+            } else if notifications.isEmpty {
                 ContentUnavailableView(
                     "No Notifications",
                     systemImage: "bell.slash",
                     description: Text("You're all caught up. New activity will show up here.")
                 )
             } else {
-                List(notifications) { notification in
-                    NotificationRow(notification: notification)
-                        .listRowBackground(Colors.background)
+                List {
+                    ForEach(sections, id: \.title) { section in
+                        Section {
+                            ForEach(section.items) { notification in
+                                NotificationRow(
+                                    notification: notification,
+                                    currentUserID: currentUserID,
+                                    myProfile: appState.profile
+                                )
+                                .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.md,
+                                                          bottom: Spacing.sm, trailing: Spacing.md))
+                                .listRowBackground(notification.read ? Colors.background : Colors.surface)
+                                .listRowSeparator(.hidden)
+                                .contentShape(.rect)
+                                .onTapGesture { tap(notification) }
+                            }
+                        } header: {
+                            Text(section.title)
+                                .font(Typography.font(.sm, weight: .semiBold))
+                                .foregroundStyle(Colors.textPrimary)
+                        }
+                    }
                 }
+                .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(Colors.background)
+                .refreshable { await load() }
             }
         }
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard let currentUserID else { return }
+        defer { isLoaded = true }
+        do {
+            let fetched = try await service.fetchNotifications(userId: currentUserID)
+            notifications = fetched
+            NotificationsCache.store(fetched)
+        } catch {
+            // Keep whatever is already on screen; an empty first load just shows the empty state.
+        }
+    }
+
+    /// Optimistically flag the row read, then persist it. Mirrors the RN `markOneRead` + tap.
+    private func tap(_ notification: NotificationWithMeta) {
+        guard !notification.read else { return }
+        if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
+            notifications[index].read = true
+        }
+        Task { try? await service.markRead(id: notification.id) }
     }
 }
 
-/// A single notification line. Icon + human-readable title, styled to match the app's dark palette.
+/// A single notification line: avatar (stacked dual avatar for a drop from someone else) + activity
+/// text + relative time, with the drop's thumbnail trailing when present, and an unread dot badge.
 private struct NotificationRow: View {
-    let notification: AppNotification
+    let notification: NotificationWithMeta
+    let currentUserID: UUID?
+    let myProfile: Profile?
+
+    private let avatarSize: CGFloat = 42
+    private let dualSize: CGFloat = 28
+    private let thumbnailSize: CGFloat = 44
+
+    /// A drop notification whose creator is someone other than the current user gets the stacked
+    /// dual avatar (drop creator over me); everything else shows the single actor avatar.
+    private var showsDualAvatar: Bool {
+        notification.drop != nil
+            && notification.drop?.creator?.id != nil
+            && notification.drop?.creator?.id != currentUserID
+    }
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            Image(systemName: iconName)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Colors.accent)
-                .frame(width: 28)
+            avatar
+                .frame(width: avatarSize, height: avatarSize)
+                .overlay(alignment: .bottomTrailing) {
+                    if !notification.read { unreadBadge }
+                }
 
-            Text(title)
-                .font(Typography.font(.sm, weight: .medium))
-                .foregroundStyle(Colors.textPrimary)
+            // Mirrors the DropCard header's text block (medium primary in white above a `.sm`
+            // regular tertiary secondary, no gap), but with a larger `.md` primary.
+            VStack(alignment: .leading, spacing: 0) {
+                Text(notification.text)
+                    .font(Typography.font(.md, weight: .medium))
+                    .foregroundStyle(Colors.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(notification.timeAgo)
+                    .font(Typography.font(.sm))
+                    .foregroundStyle(Colors.textTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
+            if let thumbnail = notification.drop?.thumbnailURL {
+                RemoteThumbnail(url: thumbnail, size: thumbnailSize)
+            }
         }
-        .padding(.vertical, Spacing.xs)
     }
 
-    private var iconName: String {
-        switch notification.type {
-        case .dropInvited: "person.2.fill"
-        case .dropReady, .dropOpened: "photo.stack.fill"
-        case .dropOpeningSoon: "clock.fill"
-        case .dropExpired: "hourglass"
-        case .participantUploaded: "photo.badge.plus.fill"
-        case .friendRequest: "person.crop.circle.badge.plus"
-        case .friendAccepted: "person.crop.circle.badge.checkmark"
+    @ViewBuilder
+    private var avatar: some View {
+        if showsDualAvatar {
+            ZStack {
+                AvatarView(
+                    url: notification.drop?.creator?.avatarURL,
+                    name: notification.drop?.creator?.name ?? "Drop",
+                    size: dualSize
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                AvatarView(url: myProfile?.avatarURL, name: myName, size: dualSize)
+                    .overlay(Circle().stroke(Colors.background, lineWidth: 2))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
+        } else {
+            AvatarView(
+                url: notification.actor?.avatarURL,
+                name: notification.actor?.name ?? "?",
+                size: avatarSize
+            )
         }
     }
 
-    private var title: String {
-        switch notification.type {
-        case .dropInvited: "You were invited to a drop"
-        case .dropReady: "Your drop is ready"
-        case .dropOpened: "A drop was opened"
-        case .dropOpeningSoon: "A drop is opening soon"
-        case .dropExpired: "A drop expired"
-        case .participantUploaded: "Someone added a photo"
-        case .friendRequest: "New friend request"
-        case .friendAccepted: "Friend request accepted"
+    private var myName: String {
+        if let displayName = myProfile?.displayName, !displayName.isEmpty { return displayName }
+        return myProfile?.username ?? "?"
+    }
+
+    private var unreadBadge: some View {
+        Circle()
+            .fill(Colors.blueNotif)
+            .frame(width: 10, height: 10)
+            .overlay(Circle().stroke(Colors.background, lineWidth: 1.5))
+            .offset(x: 1)
+    }
+}
+
+/// A small rounded remote image (the drop's thumbnail) that reuses the app's on-disk avatar cache
+/// for an instant, cache-first render — falling back to a neutral placeholder while it loads.
+private struct RemoteThumbnail: View {
+    let url: String
+    let size: CGFloat
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Colors.surface)
+            .frame(width: size, height: size)
+            .overlay {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .task(id: url) { await load() }
+    }
+
+    private func load() async {
+        guard let resolved = URL(string: url) else { return }
+        if let cached = AvatarImageCache.data(for: resolved), let img = UIImage(data: cached) {
+            image = img
         }
+        if let (data, _) = try? await URLSession.shared.data(from: resolved) {
+            AvatarImageCache.store(data, for: resolved)
+            if let img = UIImage(data: data) { image = img }
+        }
+    }
+}
+
+/// A shimmering placeholder shown during the first load, mirroring the row layout (avatar, two
+/// text lines, thumbnail) under a section header so the screen has shape before the data arrives.
+private struct NotificationsSkeleton: View {
+    private let avatarSize: CGFloat = 42
+    private let thumbnailSize: CGFloat = 44
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section-header placeholder ("Today").
+            SkeletonBlock(cornerRadius: Radii.sm)
+                .frame(width: 60, height: 14)
+                .padding(.top, Spacing.md)
+                .padding(.bottom, Spacing.sm)
+
+            ForEach(0..<7, id: \.self) { _ in
+                row
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .allowsHitTesting(false)
+    }
+
+    private var row: some View {
+        HStack(spacing: Spacing.md) {
+            SkeletonBlock(cornerRadius: avatarSize / 2)
+                .frame(width: avatarSize, height: avatarSize)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                SkeletonBlock(cornerRadius: Radii.sm)
+                    .frame(height: 14)
+                    .frame(maxWidth: .infinity)
+                SkeletonBlock(cornerRadius: Radii.sm)
+                    .frame(width: 80, height: 12)
+            }
+
+            SkeletonBlock(cornerRadius: Radii.sm)
+                .frame(width: thumbnailSize, height: thumbnailSize)
+        }
+        .padding(.vertical, Spacing.sm)
     }
 }
 
@@ -80,5 +269,6 @@ private struct NotificationRow: View {
     NavigationStack {
         NotificationsView()
     }
+    .environment(AppState())
     .preferredColorScheme(.dark)
 }

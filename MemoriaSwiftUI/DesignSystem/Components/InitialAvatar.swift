@@ -4,24 +4,19 @@ import UIKit
 struct InitialAvatar: View {
     let name: String
     var size: CGFloat = 40
-    var backgroundColor: Color = Colors.surfaceRaised
-    var foregroundColor: Color = Colors.textPrimary
+    /// Background circle colour. `nil` uses the deterministic per-name palette colour
+    /// (`AvatarPalette`), which is the identity fallback; pass an explicit colour for neutral
+    /// placeholders (e.g. the profile-setup photo picker).
+    var backgroundColor: Color? = nil
+    var foregroundColor: Color = Colors.white
     /// Local picked image data (e.g. from the profile-setup Photo step) shown instead of
     /// initials. Remote `avatar_url` rendering elsewhere in the app goes through an image
     /// loading library once that's added — this only covers already-in-memory `Data`.
     var imageData: Data? = nil
 
-    private var initials: String {
-        let letters = name
-            .split(separator: " ")
-            .prefix(2)
-            .compactMap { $0.first }
-        return letters.isEmpty ? "?" : String(letters).uppercased()
-    }
-
     var body: some View {
         Circle()
-            .fill(backgroundColor)
+            .fill(backgroundColor ?? AvatarPalette.color(for: name))
             .frame(width: size, height: size)
             .overlay {
                 if let imageData, let uiImage = UIImage(data: imageData) {
@@ -31,8 +26,8 @@ struct InitialAvatar: View {
                         .frame(width: size, height: size)
                         .clipShape(Circle())
                 } else {
-                    Text(initials)
-                        .font(Typography.font(.sm, weight: .semiBold))
+                    Text(AvatarPalette.initials(for: name))
+                        .font(.system(size: size * AvatarPalette.initialScale, weight: .semibold))
                         .foregroundStyle(foregroundColor)
                 }
             }

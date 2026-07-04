@@ -18,23 +18,17 @@ struct AvatarView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Circle().fill(Colors.surfaceRaised)
-                Text(initials)
-                    .font(.system(size: size * 0.4, weight: .semibold))
-                    .foregroundStyle(Colors.textPrimary)
+                // No photo → the user's deterministic palette colour + first initial, stable until
+                // they upload a picture.
+                Circle().fill(AvatarPalette.color(for: name))
+                Text(AvatarPalette.initials(for: name))
+                    .font(.system(size: size * AvatarPalette.initialScale, weight: .semibold))
+                    .foregroundStyle(Colors.white)
             }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
         .task(id: url) { await load() }
-    }
-
-    private var initials: String {
-        let letters = name
-            .split(separator: " ")
-            .prefix(2)
-            .compactMap { $0.first }
-        return letters.isEmpty ? "?" : String(letters).uppercased()
     }
 
     private func load() async {
