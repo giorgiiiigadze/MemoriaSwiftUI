@@ -50,6 +50,50 @@ final class DropsService {
             .value
     }
 
+    /// Creates a drop: uploads the cover photo to the public `photos` bucket, inserts the `drops`
+    /// row (creator + title + open date + thumbnail), then invites the chosen friends as
+    /// `drop_participants`. Returns the new drop's id. RLS scopes the insert to `creator_id = me`
+    /// and lets the creator add participants.
+    @discardableResult
+    func createDrop(
+        creatorID: UUID,
+        title: String,
+        openDate: Date,
+        thumbnail: Data,
+        invitedUserIDs: [UUID]
+    ) async throws -> UUID {
+        let path = "\(creatorID.uuidString.lowercased())/\(UUID().uuidString).jpg"
+        try await client.storage
+            .from("photos")
+            .upload(path, data: thumbnail, options: FileOptions(contentType: "image/jpeg", upsert: false))
+        let thumbnailURL = try client.storage.from("photos").getPublicURL(path: path).absoluteString
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let newDrop = NewDrop(
+            creatorID: creatorID,
+            title: title,
+            openDate: iso.string(from: openDate),
+            thumbnailURL: thumbnailURL
+        )
+        let created: InsertedDrop = try await client
+            .from("drops")
+            .insert(newDrop)
+            .select("id")
+            .single()
+            .execute()
+            .value
+
+        if !invitedUserIDs.isEmpty {
+            let participants = invitedUserIDs.map {
+                NewParticipant(dropID: created.id, userID: $0, invitedBy: creatorID)
+            }
+            try await client.from("drop_participants").insert(participants).execute()
+        }
+        return created.id
+    }
+
     /// Permanently deletes a drop for everyone. Only the creator may delete — enforced by the
     /// `drops` table's row-level security, not here.
     func deleteDrop(id: UUID) async throws {
@@ -59,4 +103,35 @@ final class DropsService {
             .eq("id", value: id)
             .execute()
     }
+
+    /// Insert payload for a new drop. `state` / `is_private` fall to their table defaults.
+    private struct NewDrop: Encodable {
+        let creatorID: UUID
+        let title: String
+        let openDate: String
+        let thumbnailURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case creatorID = "creator_id"
+            case title
+            case openDate = "open_date"
+            case thumbnailURL = "thumbnail_url"
+        }
+    }
+
+    /// Insert payload for one invited participant. `status` defaults to `'invited'`.
+    private struct NewParticipant: Encodable {
+        let dropID: UUID
+        let userID: UUID
+        let invitedBy: UUID
+
+        enum CodingKeys: String, CodingKey {
+            case dropID = "drop_id"
+            case userID = "user_id"
+            case invitedBy = "invited_by"
+        }
+    }
+
+    /// The `id` returned from the drop insert.
+    private struct InsertedDrop: Decodable { let id: UUID }
 }
