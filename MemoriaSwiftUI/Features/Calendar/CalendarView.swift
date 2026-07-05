@@ -133,8 +133,9 @@ struct CalendarView: View {
             errorMessage = nil
         } catch {
             // Only surface the error when there's nothing cached to show; otherwise keep the
-            // stale-but-useful cached content on screen and stay silent.
-            if allDrops.isEmpty { errorMessage = error.localizedDescription }
+            // stale-but-useful cached content on screen and stay silent. Cancellations (fast tab
+            // switches / refresh) aren't real failures, so never show them.
+            if allDrops.isEmpty && !error.isCancellation { errorMessage = error.localizedDescription }
         }
         isLoading = false
     }

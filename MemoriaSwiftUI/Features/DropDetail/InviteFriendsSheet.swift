@@ -11,6 +11,7 @@ struct InviteFriendsSheet: View {
     let inviterID: UUID
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
 
     private let friendsService = FriendsService()
     private let dropsService = DropsService()
@@ -83,6 +84,8 @@ struct InviteFriendsSheet: View {
                 }
             }
             .listStyle(.plain)
+        } else if friends.isEmpty {
+            noFriendsState
         } else if invitable.isEmpty {
             emptyState
         } else {
@@ -120,6 +123,29 @@ struct InviteFriendsSheet: View {
                 .font(Typography.font(.sm))
                 .foregroundStyle(Colors.white.opacity(0.7))
                 .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, Spacing.xl)
+    }
+
+    /// Shown when the user has no friends yet — the same empty-state layout, but with a "Find
+    /// friends" pill (like the Profile's "Create a drop" prompt) that dismisses the sheet and jumps
+    /// to the Friends tab where they can search and add people.
+    private var noFriendsState: some View {
+        VStack(spacing: Spacing.xxs) {
+            Text("No friends yet")
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text("Add friends to invite them to this drop.")
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+
+            CompactPillButton(title: "Find friends", systemImage: "person.fill.badge.plus") {
+                dismiss()
+                appState.requestedTab = .friends
+            }
+            .padding(.top, Spacing.md)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, Spacing.xl)

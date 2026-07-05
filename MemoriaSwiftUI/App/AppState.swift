@@ -10,6 +10,12 @@ enum RootPhase: Equatable {
     case app
 }
 
+/// A primary tab another view can ask `MainTabView` to switch to — e.g. an empty state's
+/// "Find friends" button buried in a modal, which can't reach the tab selection directly.
+enum AppTab {
+    case home, friends, calendar, profile
+}
+
 @Observable
 final class AppState {
     private(set) var phase: RootPhase = .splash
@@ -27,6 +33,10 @@ final class AppState {
 
     /// Set when a switch fails because the stored token was stale; surfaced as an alert, then cleared.
     var switchErrorMessage: String?
+
+    /// A one-shot request to switch primary tab, honored and cleared by `MainTabView`. Lets a deep
+    /// view (e.g. the invite sheet's "Find friends" button) route to a tab it can't reach directly.
+    var requestedTab: AppTab?
 
     private let client = SupabaseClient.shared
     private var authStateTask: Task<Void, Never>?

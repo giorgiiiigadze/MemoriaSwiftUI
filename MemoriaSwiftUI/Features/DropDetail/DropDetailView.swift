@@ -470,7 +470,10 @@ struct DropDetailView: View {
                 // returns the whole grid.
                 await load()
             } catch {
-                errorMessage = "Could not accept the invitation. Please try again."
+                // Cancellations (view torn down mid-action) aren't real failures — stay silent.
+                if !error.isCancellation {
+                    errorMessage = "Could not accept the invitation. Please try again."
+                }
             }
             isAccepting = false
         }
@@ -486,7 +489,9 @@ struct DropDetailView: View {
                 // there's nothing left to show here.
                 dismiss()
             } catch {
-                errorMessage = "Could not decline the invitation. Please try again."
+                if !error.isCancellation {
+                    errorMessage = "Could not decline the invitation. Please try again."
+                }
                 isDeclining = false
             }
         }
@@ -501,7 +506,9 @@ struct DropDetailView: View {
                 // They've left — RLS has revoked their access, so drop back out of the drop.
                 dismiss()
             } catch {
-                errorMessage = "Could not leave the drop. Please try again."
+                if !error.isCancellation {
+                    errorMessage = "Could not leave the drop. Please try again."
+                }
                 isLeaving = false
             }
         }
@@ -518,7 +525,9 @@ struct DropDetailView: View {
                 DropDetailCache.storePhotos(fetched, for: dropID)
             }
         } catch {
-            errorMessage = "Could not upload your photo. Please try again."
+            if !error.isCancellation {
+                errorMessage = "Could not upload your photo. Please try again."
+            }
         }
     }
 
@@ -548,7 +557,9 @@ struct DropDetailView: View {
                 try await dropsService.deleteDrop(id: dropID)
                 dismiss()
             } catch {
-                errorMessage = "Could not delete the drop."
+                if !error.isCancellation {
+                    errorMessage = "Could not delete the drop."
+                }
             }
         }
     }

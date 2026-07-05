@@ -82,6 +82,21 @@ struct MainTabView: View {
         .task(id: [appState.profile?.avatarURL, avatarName]) {
             await loadAvatarIcon()
         }
+        // Honor a tab switch requested by a deep view (e.g. the invite sheet's "Find friends"
+        // button), then clear the one-shot request.
+        .onChange(of: appState.requestedTab) { _, requested in
+            guard let requested else { return }
+            switch requested {
+            case .home: selectedTab = .home
+            case .friends: selectedTab = .friends
+            case .calendar: selectedTab = .calendar
+            case .profile: selectedTab = .profile
+            }
+            appState.requestedTab = nil
+            // The tab we're leaving may still have a detail screen pushed that hid the shared
+            // UITabBar; `TabBarHider` reconciles the bar to the destination tab on the switch, so
+            // there's nothing to restore here.
+        }
     }
 
     private func loadAvatarIcon() async {

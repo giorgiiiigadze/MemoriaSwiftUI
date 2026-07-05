@@ -13,6 +13,13 @@ struct HomeView: View {
     @State private var didDeleteFail = false
     /// Unread notification count for the bell badge.
     @State private var unreadCount: Int
+    /// Drop-search state. The toolbar button flips `isSearchActive` to attach the native search
+    /// field; once attached, `isSearchPresented` is driven false→true so SwiftUI runs its real
+    /// present-and-focus transition (rather than the field appearing already-presented, which can
+    /// fail to focus). `isSearchPresented` going back to false detaches and clears the query.
+    @State private var query = ""
+    @State private var isSearchActive = false
+    @State private var isSearchPresented = false
 
     private let service = DropsService()
     private let notificationsService = NotificationsService()
@@ -41,6 +48,23 @@ struct HomeView: View {
     }
 
     private var currentUserID: UUID? { appState.session?.user.id }
+
+    /// The trimmed, lower-cased search query, or empty when not searching.
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// The feed filtered by the search query — matching a drop's title, its creator, or any
+    /// participant's name. Returns the full feed when the query is empty.
+    private var filteredDrops: [DropWithParticipants] {
+        let q = trimmedQuery
+        guard !q.isEmpty else { return drops }
+        return drops.filter { drop in
+            drop.title.lowercased().contains(q)
+                || (drop.creatorName?.lowercased().contains(q) ?? false)
+                || drop.participants.contains { $0.profile?.name.lowercased().contains(q) ?? false }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -75,15 +99,33 @@ struct HomeView: View {
                             : "Notifications")
                     }
                     Button {
-                        // TODO: share / invite
+                        // Attach the native search field (like the Friends tab), but on demand
+                        // rather than always-visible. The onChange below then presents it.
+                        isSearchActive = true
                     } label: {
-                        Image(systemName: "paperplane.fill")
+                        Image(systemName: "rectangle.and.text.magnifyingglass")
                     }
                 }
                 ToolbarItem(placement: .principal) {
                     Text("Memoria")
                         .font(Typography.font(.xl, weight: .strong))
                         .foregroundStyle(Colors.textPrimary)
+                }
+            }
+            // Native drop search, only attached once the toolbar button activates it — so the field
+            // stays fully hidden until tapped. Detaching it on dismiss (rather than leaving it
+            // parked in the nav bar) is what keeps it hidden.
+            .modifier(RevealableSearch(isActive: isSearchActive, isPresented: $isSearchPresented, text: $query))
+            // Present only after the field is attached, so SwiftUI sees a real false→true
+            // transition and reliably slides it in focused.
+            .onChange(of: isSearchActive) { _, active in
+                if active { isSearchPresented = true }
+            }
+            // Cancel drives isPresented→false: clear the query and detach the field.
+            .onChange(of: isSearchPresented) { _, presented in
+                if !presented {
+                    query = ""
+                    isSearchActive = false
                 }
             }
             .tint(Colors.textPrimary)
@@ -111,20 +153,44 @@ struct HomeView: View {
             emptyState
         } else {
             RefreshableGridScrollView(onRefresh: { await load() }) {
-                LazyVStack(spacing: feedSpacing) {
-                    ForEach(drops) { drop in
-                        DropCard(
-                            drop: drop,
-                            currentUserID: currentUserID,
-                            onDelete: { delete(drop) },
-                            onTogglePin: { togglePin(drop) }
-                        )
-                        .onAppear { DropPrefetcher.shared.prefetch(drop) }
+                if filteredDrops.isEmpty {
+                    searchEmptyState
+                } else {
+                    LazyVStack(spacing: feedSpacing) {
+                        ForEach(filteredDrops) { drop in
+                            DropCard(
+                                drop: drop,
+                                currentUserID: currentUserID,
+                                onDelete: { delete(drop) },
+                                onTogglePin: { togglePin(drop) }
+                            )
+                            .onAppear { DropPrefetcher.shared.prefetch(drop) }
+                        }
                     }
+                    .padding(.vertical, Spacing.md)
                 }
-                .padding(.vertical, Spacing.md)
             }
         }
+    }
+
+    /// Shown when a search matches no drops — mirrors the Friends tab's no-results look.
+    private var searchEmptyState: some View {
+        VStack(spacing: Spacing.xxs) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(Colors.white)
+                .padding(.bottom, Spacing.xxs)
+            Text("No drops found")
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text("Try a different name or title.")
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xxxxl)
+        .padding(.bottom, Spacing.xxxl)
     }
 
     /// First-load placeholder: a few `DropCard`-shaped skeletons in the real feed layout, so the
@@ -166,8 +232,9 @@ struct HomeView: View {
             errorMessage = nil
         } catch {
             // Only surface the error when there's nothing cached to show; otherwise keep the
-            // stale-but-useful cached feed on screen and stay silent.
-            if drops.isEmpty { errorMessage = error.localizedDescription }
+            // stale-but-useful cached feed on screen and stay silent. Cancellations (fast tab
+            // switches / refresh) aren't real failures, so never show them.
+            if drops.isEmpty && !error.isCancellation { errorMessage = error.localizedDescription }
         }
         isLoading = false
     }
@@ -234,6 +301,24 @@ struct HomeView: View {
         drops[index].isPinned = newValue
         HomeDropsCache.store(drops)
         Task { try? await service.setPinned(dropID: drop.id, pinned: newValue) }
+    }
+}
+
+/// Attaches `.searchable` only while `isActive`, so the field is absent from the nav bar until the
+/// toolbar button turns it on. It's attached with `isPresented` still false; the caller then flips
+/// `isPresented` true so SwiftUI runs its real present-and-focus transition. Cancel flips
+/// `isPresented` back to false, and the caller turns `isActive` off to detach and re-hide the field.
+private struct RevealableSearch: ViewModifier {
+    let isActive: Bool
+    @Binding var isPresented: Bool
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.searchable(text: $text, isPresented: $isPresented, prompt: "Search drops…")
+        } else {
+            content
+        }
     }
 }
 

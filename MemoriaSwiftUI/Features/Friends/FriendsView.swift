@@ -297,7 +297,10 @@ struct FriendsView: View {
             errorMessage = nil
             await loadSuggested()
         } catch {
-            if connections.friends.isEmpty { errorMessage = error.localizedDescription }
+            // Cancellations (fast tab switches / re-runs) aren't real failures — stay silent.
+            if connections.friends.isEmpty && !error.isCancellation {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

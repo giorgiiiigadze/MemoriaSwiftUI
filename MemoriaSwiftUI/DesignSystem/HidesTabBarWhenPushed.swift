@@ -59,6 +59,22 @@ private struct TabBarHider: UIViewControllerRepresentable {
             }
         }
 
+        override func viewDidDisappear(_ animated: Bool) {
+            super.viewDidDisappear(animated)
+            // If our whole tab was switched away (rather than a push/pop within our own stack), the
+            // destination tab now owns the shared bar. `viewWillDisappear` above kept the bar hidden
+            // because we're still in our stack — correct for a deeper push, but wrong for a tab
+            // switch, which would strand the bar hidden on the new tab. This runs after the switch
+            // settles, so `selectedViewController` reliably reflects the destination; reconcile the
+            // bar to whatever that tab is showing.
+            guard let nav = navigationController,
+                  let tabBarController,
+                  tabBarController.selectedViewController !== nav else { return }
+            let destinationHides = (tabBarController.selectedViewController as? UINavigationController)?
+                .topViewController?.memoriaHidesTabBar ?? false
+            tabBarController.tabBar.alpha = destinationHides ? 0 : 1
+        }
+
         /// Our own controller at the navigation-stack level (the pushed hosting controller), found by
         /// walking up parents until the one whose parent is the navigation controller.
         private var navStackController: UIViewController? {
