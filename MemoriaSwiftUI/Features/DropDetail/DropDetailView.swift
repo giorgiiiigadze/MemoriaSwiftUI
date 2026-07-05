@@ -23,6 +23,7 @@ struct DropDetailView: View {
     @State private var isUploading = false
     @State private var isAccepting = false
     @State private var isDeclining = false
+    @State private var isLeaving = false
     @State private var isShowingCamera = false
     @State private var viewerIndex: Int?
     @State private var isShowingLockedNote = false
@@ -64,6 +65,11 @@ struct DropDetailView: View {
     private var showAcceptBar: Bool { isInvited && !isCreator }
     private var hasBottomBar: Bool { showAcceptBar || canUpload }
 
+    /// The empty drop is showing its "Be the first" prompt: an uploader is looking at a drop with no
+    /// photos yet. The prompt carries its own inline "Upload first" button, so the floating camera
+    /// control is suppressed in this one case.
+    private var showsUploadPrompt: Bool { canUpload && photosLoaded && photos.isEmpty }
+
     /// Blur a photo out while the drop is still collecting — everyone's but your own. Your own
     /// uploads always show; others' reveal only once the drop opens.
     private func isBlurred(_ photo: PhotoWithUploader) -> Bool {
@@ -93,7 +99,9 @@ struct DropDetailView: View {
 
             if showAcceptBar {
                 acceptBar
-            } else if canUpload {
+            } else if canUpload && photosLoaded && !showsUploadPrompt {
+                // Only once photos have loaded: while the skeleton grid shows we don't yet know
+                // whether the drop is empty (→ inline prompt) or has photos (→ this button).
                 captureButton
             }
         }
@@ -127,6 +135,7 @@ struct DropDetailView: View {
                             Label("Leave Drop", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                         .tint(Colors.error)
+                        .disabled(isLeaving)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -253,17 +262,28 @@ struct DropDetailView: View {
 
     private var emptyState: some View {
         VStack(spacing: Spacing.xxs) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 32))
-                .foregroundStyle(Colors.white)
-                .padding(.bottom, Spacing.xxs)
+            // In the upload-first case the inline "Upload first" button below carries the camera
+            // affordance, so the decorative icon would be redundant; other empty states keep it.
+            if !showsUploadPrompt {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 26))
+                    .foregroundStyle(Colors.white)
+                    .padding(.bottom, Spacing.xxs)
+            }
             Text(emptyTitle)
                 .font(Typography.font(.md, weight: .semiBold))
                 .foregroundStyle(Colors.white)
             Text(emptySubtitle)
                 .font(Typography.font(.sm))
-                .foregroundStyle(Colors.white)
+                .foregroundStyle(Colors.white.opacity(0.7))
                 .multilineTextAlignment(.center)
+
+            if showsUploadPrompt {
+                CompactPillButton(title: "Upload first", systemImage: "camera.fill", isLoading: isUploading) {
+                    isShowingCamera = true
+                }
+                .padding(.top, Spacing.md)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Spacing.xxxxl)
@@ -277,7 +297,7 @@ struct DropDetailView: View {
     }
 
     private var emptySubtitle: String {
-        if isLocked && canUpload { return "Add a photo using the camera below." }
+        if isLocked && canUpload { return "Add the first photo to this drop." }
         if isLocked { return "Participants haven't uploaded anything yet." }
         return "No photos were uploaded before this drop closed."
     }
@@ -440,7 +460,8 @@ struct DropDetailView: View {
     }
 
     private func leave() {
-        guard let userID else { return }
+        guard let userID, !isLeaving else { return }
+        isLeaving = true
         Task {
             do {
                 try await dropsService.leaveDrop(dropID: dropID, userID: userID)
@@ -448,6 +469,7 @@ struct DropDetailView: View {
                 dismiss()
             } catch {
                 errorMessage = "Could not leave the drop. Please try again."
+                isLeaving = false
             }
         }
     }

@@ -14,8 +14,19 @@ struct ParticipantAvatars: View {
     private let inactiveOpacity: CGFloat = 0.45
 
     var body: some View {
-        let visible = Array(participants.prefix(maxVisible))
-        let extra = participants.count - maxVisible
+        // Active members come first so declined/left people never crowd present members out of the
+        // capped row (or the "+N" overflow). `enumerated` keeps the original order stable within
+        // each group.
+        let ordered = participants.enumerated()
+            .sorted { lhs, rhs in
+                let lInactive = Self.isInactive(lhs.element.status)
+                let rInactive = Self.isInactive(rhs.element.status)
+                if lInactive != rInactive { return !lInactive }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+        let visible = Array(ordered.prefix(maxVisible))
+        let extra = ordered.count - maxVisible
 
         if !visible.isEmpty {
             // Negative spacing overlaps each avatar over its neighbour; the z-index steps down

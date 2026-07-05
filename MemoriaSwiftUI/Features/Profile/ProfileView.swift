@@ -159,7 +159,7 @@ struct ProfileView: View {
     ) -> some View {
         VStack(spacing: Spacing.xxs) {
             Image(systemName: icon)
-                .font(.system(size: 32, weight: .regular))
+                .font(.system(size: 26, weight: .regular))
                 .foregroundStyle(Colors.white)
                 .padding(.bottom, Spacing.xxs)
             Text(title)
@@ -167,7 +167,7 @@ struct ProfileView: View {
                 .foregroundStyle(Colors.white)
             Text(subtitle)
                 .font(Typography.font(.sm))
-                .foregroundStyle(Colors.white)
+                .foregroundStyle(Colors.white.opacity(0.7))
                 .multilineTextAlignment(.center)
 
             if let actionTitle, let action {
