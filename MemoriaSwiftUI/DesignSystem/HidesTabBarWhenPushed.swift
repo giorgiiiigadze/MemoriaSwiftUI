@@ -71,16 +71,27 @@ private struct TabBarHider: UIViewControllerRepresentable {
         private func setTabBar(hidden: Bool, animated: Bool) {
             guard let tabBar = tabBarController?.tabBar else { return }
             let target: CGFloat = hidden ? 0 : 1
-            let previous = tabBar.alpha
             guard animated, let coordinator = transitionCoordinator else {
                 tabBar.alpha = target
                 return
             }
             coordinator.animate(alongsideTransition: { _ in
                 tabBar.alpha = target
-            }, completion: { context in
-                if context.isCancelled { tabBar.alpha = previous }
+            }, completion: { [weak self] _ in
+                // Reconcile to whatever screen actually landed on top once the transition settles.
+                // This is what makes a *cancelled* interactive swipe-back correct: when you drag
+                // back only slightly and let go, the gesture heads toward the (bar-showing) screen
+                // underneath — but on release we snap back to this hiding screen, so the bar must
+                // return to hidden. Reading the live top view controller (rather than restoring a
+                // guessed pre-swipe alpha) keeps the bar in sync whether the swipe committed or not.
+                guard let self else { return }
+                tabBar.alpha = self.topHidesTabBar ? 0 : 1
             })
+        }
+
+        /// Whether the screen currently on top of the navigation stack wants the tab bar hidden.
+        private var topHidesTabBar: Bool {
+            navigationController?.topViewController?.memoriaHidesTabBar ?? false
         }
     }
 }
