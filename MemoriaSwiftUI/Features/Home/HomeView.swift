@@ -103,7 +103,7 @@ struct HomeView: View {
                         // rather than always-visible. The onChange below then presents it.
                         isSearchActive = true
                     } label: {
-                        Image(systemName: "rectangle.and.text.magnifyingglass")
+                        Image(systemName: "magnifyingglass")
                     }
                 }
                 ToolbarItem(placement: .principal) {
