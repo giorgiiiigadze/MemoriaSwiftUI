@@ -22,4 +22,10 @@ enum NotificationsCache {
         guard let data = try? JSONEncoder().encode(notifications) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
+
+    /// Wipes the cache — used when switching accounts so the incoming user never sees the previous
+    /// user's notifications flash before their own fetch lands.
+    nonisolated static func clear() {
+        try? FileManager.default.removeItem(at: fileURL)
+    }
 }

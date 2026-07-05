@@ -22,4 +22,10 @@ enum ProfileDropsCache {
         guard let data = try? JSONEncoder().encode(drops) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
+
+    /// Wipes the cache — used when switching accounts so the incoming user never sees the previous
+    /// user's drops flash before their own fetch lands.
+    nonisolated static func clear() {
+        try? FileManager.default.removeItem(at: fileURL)
+    }
 }

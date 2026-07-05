@@ -34,8 +34,14 @@ struct InviteView: View {
                 .padding(.bottom, Spacing.xxxxl)
             }
         }
-        .navigationTitle("Invite")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Invite")
+                    .font(Typography.font(.xl, weight: .strong))
+                    .foregroundStyle(Colors.textPrimary)
+            }
+        }
         .task { await start() }
     }
 

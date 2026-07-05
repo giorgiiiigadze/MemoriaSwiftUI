@@ -54,6 +54,27 @@ struct RootView: View {
             }
         }
         .environment(appState)
+        // Add-account flow: presents the login screen over the app without signing out the current
+        // account. A successful sign-in flips `phase` to `.app`, and `hydrate` clears
+        // `isAddingAccount`, auto-dismissing this cover as the switch completes.
+        .fullScreenCover(isPresented: Binding(
+            get: { appState.isAddingAccount },
+            set: { if !$0 { appState.cancelAddAccount() } }
+        )) {
+            LoginView(onDismiss: { appState.cancelAddAccount() })
+                .environment(appState)
+        }
+        .alert(
+            "Switch Failed",
+            isPresented: Binding(
+                get: { appState.switchErrorMessage != nil },
+                set: { if !$0 { appState.switchErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(appState.switchErrorMessage ?? "")
+        }
         .animation(.easeInOut(duration: 0.3), value: isShowingSplash)
         .animation(.easeInOut(duration: 0.3), value: appState.phase)
         .task {
@@ -114,11 +135,11 @@ private struct AuthFlowContainer: View {
 private struct SplashView: View {
     var body: some View {
         ZStack {
-            Colors.background.ignoresSafeArea()
+            Colors.white.ignoresSafeArea()
 
             Text("Memoria")
                 .font(Typography.font(.xxxl, weight: .strong))
-                .foregroundStyle(Colors.textPrimary)
+                .foregroundStyle(Colors.ink)
         }
     }
 }

@@ -46,4 +46,10 @@ enum DropDetailCache {
         guard let data = try? JSONEncoder().encode(photos) else { return }
         try? data.write(to: photosURL(id), options: .atomic)
     }
+
+    /// Wipes every cached drop + photo list — used when switching accounts so the incoming user
+    /// never opens a drop and briefly sees the previous user's cached copy.
+    static func clear() {
+        try? FileManager.default.removeItem(at: directory())
+    }
 }

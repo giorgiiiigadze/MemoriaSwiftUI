@@ -177,7 +177,13 @@ struct HomeView: View {
             table: "notifications",
             filter: .eq("user_id", value: currentUserID.uuidString)
         )
-        await channel.subscribe()
+        // `subscribeWithError` replaces the deprecated `subscribe()` — it throws if the channel
+        // fails to join. On failure, bail out silently; the badge just keeps its last value.
+        do {
+            try await channel.subscribeWithError()
+        } catch {
+            return
+        }
         defer { Task { await channel.unsubscribe() } }
         // Reconcile once on connect, then on every change event.
         await loadUnread()

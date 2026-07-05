@@ -16,6 +16,18 @@ final class AppState {
     private(set) var session: Session?
     private(set) var profile: Profile?
 
+    /// The accounts signed into on this device and which one is active. Backs the Profile account
+    /// switcher; kept in sync by `hydrate` (which re-saves the active account, tokens and all, on
+    /// every successful load and token refresh).
+    let accounts = AccountStore()
+
+    /// Drives the add-account cover: while true, `RootView` presents the auth flow over the app so
+    /// the user can sign into another account without losing the current one.
+    var isAddingAccount = false
+
+    /// Set when a switch fails because the stored token was stale; surfaced as an alert, then cleared.
+    var switchErrorMessage: String?
+
     private let client = SupabaseClient.shared
     private var authStateTask: Task<Void, Never>?
 
@@ -61,6 +73,63 @@ final class AppState {
     func beginProfileSetup(session: Session) {
         self.session = session
         phase = .profileSetup
+        isAddingAccount = false
+    }
+
+    // MARK: Account switching
+
+    /// Presents the auth flow over the app so the user can add another account without signing out
+    /// of the current one. The current session stays active (and already saved) until a new sign-in
+    /// replaces it, so cancelling just returns to the current account.
+    func beginAddAccount() {
+        isAddingAccount = true
+    }
+
+    func cancelAddAccount() {
+        isAddingAccount = false
+    }
+
+    /// Swaps the active session to a previously-saved account — no password needed. Clears the
+    /// user-scoped caches first so the incoming user never sees the previous user's data, then hands
+    /// off to `setSession`, whose `.signedIn` event flows through `hydrate` like any other sign-in.
+    func switchAccount(to id: UUID) async {
+        guard id != accounts.activeID, let account = accounts.account(id: id) else { return }
+
+        UserCaches.clear()
+        phase = .splash
+        do {
+            _ = try await client.auth.setSession(
+                accessToken: account.accessToken,
+                refreshToken: account.refreshToken
+            )
+            // `.signedIn` fires → `hydrate` loads the new user and flips to `.app`.
+        } catch {
+            // The stored token was stale (rotated/expired) — this account needs a fresh login.
+            accounts.remove(id: id)
+            switchErrorMessage = "Couldn't switch to that account. Please add it again."
+            // Recover to whatever session is still active in the SDK, or fall back to auth.
+            if let current = try? await client.auth.session {
+                await hydrate(session: current, isColdBoot: true)
+            } else {
+                session = nil
+                profile = nil
+                phase = .auth
+            }
+        }
+    }
+
+    /// Logs out of the *active* account. If another saved account exists, switches straight to it;
+    /// otherwise clears caches and signs out fully, landing on the auth screen.
+    func logOutActiveAccount() async {
+        let currentID = accounts.activeID ?? session?.user.id
+        if let currentID { accounts.remove(id: currentID) }
+
+        if let next = accounts.accounts.first {
+            await switchAccount(to: next.id)
+        } else {
+            UserCaches.clear()
+            try? await client.auth.signOut()
+        }
     }
 
     private func handle(event: AuthChangeEvent, session: Session?) async {
@@ -77,6 +146,7 @@ final class AppState {
         case .signedOut:
             self.session = nil
             self.profile = nil
+            UserCaches.clear()
             phase = .auth
         case .passwordRecovery, .userUpdated, .userDeleted, .mfaChallengeVerified:
             break
@@ -134,6 +204,20 @@ final class AppState {
             self.profile = profile
             hasSeenOnboarding = true
             phase = .app
+            isAddingAccount = false
+            // Persist this account (with its current tokens) so it's a fast-switch target and its
+            // stored refresh token stays fresh across rotations.
+            accounts.upsert(
+                SavedAccount(
+                    id: session.user.id,
+                    username: profile.username,
+                    displayName: profile.displayName,
+                    avatarURL: profile.avatarURL,
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken
+                ),
+                active: true
+            )
         } catch {
             if !isColdBoot, let postgrestError = error as? PostgrestError, postgrestError.code == "PGRST116" {
                 phase = .profileSetup

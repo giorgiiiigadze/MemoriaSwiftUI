@@ -5,11 +5,15 @@ import Supabase
 /// account/app settings; for now it hosts Log Out (relocated here from the Profile screen, which is
 /// where a gear → settings path conventionally leads).
 struct SettingsView: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         List {
             Section {
                 Button(role: .destructive) {
-                    Task { try? await SupabaseClient.shared.auth.signOut() }
+                    // Logs out the active account; if another account is saved, switches straight to
+                    // it instead of dropping all the way back to the sign-in screen.
+                    Task { await appState.logOutActiveAccount() }
                 } label: {
                     Text("Log Out")
                 }
@@ -26,5 +30,6 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
     }
+    .environment(AppState())
     .preferredColorScheme(.dark)
 }

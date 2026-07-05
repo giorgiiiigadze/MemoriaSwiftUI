@@ -21,4 +21,12 @@ enum ProfileStatsCache {
         defaults.set(friends, forKey: friendsKey)
         defaults.set(invited, forKey: invitedKey)
     }
+
+    /// Wipes the cached counts — used when switching accounts so the incoming user never sees the
+    /// previous user's stats before their own counts load.
+    nonisolated static func clear() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: friendsKey)
+        defaults.removeObject(forKey: invitedKey)
+    }
 }

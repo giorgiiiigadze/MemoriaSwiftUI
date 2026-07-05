@@ -15,6 +15,8 @@ struct ProfileView: View {
     @State private var viewingDrop: CalendarDrop?
     /// Presents the Create Drop flow from the empty-state button.
     @State private var isShowingCreateDrop = false
+    /// Presents the account switcher from the tappable username in the header.
+    @State private var isShowingAccountSwitcher = false
 
     private let service = DropsService()
     private let friendsService = FriendsService()
@@ -72,9 +74,23 @@ struct ProfileView: View {
                     DropDetailView(dropID: drop.id)
                 }
             }
-            .navigationTitle(profile.map { "@\($0.username)" } ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Tappable username → account switcher (Instagram-style). The chevron signals it
+                // opens something.
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        isShowingAccountSwitcher = true
+                    } label: {
+                        HStack(spacing: Spacing.xxs) {
+                            Text(profile.map { "@\($0.username)" } ?? "")
+                                .font(Typography.font(.body, weight: .semiBold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(Colors.textPrimary)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SettingsView()
@@ -84,6 +100,9 @@ struct ProfileView: View {
                     .tint(Colors.textPrimary)
                 }
             }
+        }
+        .sheet(isPresented: $isShowingAccountSwitcher) {
+            AccountSwitcherSheet()
         }
         .sheet(isPresented: $isShowingCreateDrop) {
             CreateDropView {
