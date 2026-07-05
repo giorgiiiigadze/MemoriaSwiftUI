@@ -106,7 +106,7 @@ struct HomeView: View {
     @ViewBuilder
     private var content: some View {
         if isLoading {
-            ProgressView().tint(Colors.textTertiary)
+            feedSkeleton
         } else if drops.isEmpty {
             emptyState
         } else {
@@ -125,6 +125,18 @@ struct HomeView: View {
                 .padding(.vertical, Spacing.md)
             }
         }
+    }
+
+    /// First-load placeholder: a few `DropCard`-shaped skeletons in the real feed layout, so the
+    /// screen keeps its structure while drops arrive instead of a lone spinner.
+    private var feedSkeleton: some View {
+        ScrollView {
+            LazyVStack(spacing: feedSpacing) {
+                ForEach(0..<3, id: \.self) { _ in DropCardSkeleton() }
+            }
+            .padding(.vertical, Spacing.md)
+        }
+        .scrollDisabled(true)
     }
 
     private var emptyState: some View {

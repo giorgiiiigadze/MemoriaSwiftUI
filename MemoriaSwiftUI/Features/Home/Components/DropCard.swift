@@ -195,3 +195,34 @@ struct DropCard: View {
         }
     }
 }
+
+/// Shimmering placeholder matching `DropCard`'s layout — a header (avatar + two text lines) above
+/// the 3:4 photo block — so the Home feed has real shape while the first load lands, instead of a
+/// bare spinner. Reuses the shared `SkeletonBlock` shimmer so it stays in phase with the rest.
+struct DropCardSkeleton: View {
+    private let avatarSize: CGFloat = 34
+    private let side: CGFloat = 10
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.xs) {
+                SkeletonBlock(cornerRadius: avatarSize / 2)
+                    .frame(width: avatarSize, height: avatarSize)
+
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    SkeletonBlock(cornerRadius: Radii.sm)
+                        .frame(width: 150, height: 13)
+                    SkeletonBlock(cornerRadius: Radii.sm)
+                        .frame(width: 90, height: 11)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, side)
+
+            SkeletonBlock(cornerRadius: Radii.lg)
+                .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+        }
+        .allowsHitTesting(false)
+    }
+}

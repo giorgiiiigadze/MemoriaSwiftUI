@@ -105,6 +105,30 @@ final class DropsService {
         return created.id
     }
 
+    /// Invite more friends to an existing drop — inserts one `invited` `drop_participants` row per
+    /// user. Callers must pass only users without an existing row, since the table's
+    /// `(drop_id, user_id)` uniqueness would otherwise reject the whole batch. RLS scopes who may add
+    /// participants to a drop.
+    func inviteParticipants(dropID: UUID, userIDs: [UUID], invitedBy: UUID) async throws {
+        guard !userIDs.isEmpty else { return }
+        let rows = userIDs.map { NewParticipant(dropID: dropID, userID: $0, invitedBy: invitedBy) }
+        try await client.from("drop_participants").insert(rows).execute()
+    }
+
+    /// Re-invite people who previously declined or left — flips their existing `drop_participants`
+    /// rows back to `invited`. Used instead of an insert because their row already exists (the
+    /// `(drop_id, user_id)` uniqueness would reject a fresh insert). The UPDATE RLS policy lets the
+    /// drop's creator update any participant row on the drop.
+    func reinviteParticipants(dropID: UUID, userIDs: [UUID]) async throws {
+        guard !userIDs.isEmpty else { return }
+        try await client
+            .from("drop_participants")
+            .update(["status": ParticipantStatus.invited.rawValue])
+            .eq("drop_id", value: dropID)
+            .in("user_id", values: userIDs.map(\.uuidString))
+            .execute()
+    }
+
     /// How many drops the user has been invited to — i.e. their `drop_participants` rows. Uses a
     /// head/count request so no rows travel back.
     func invitedDropCount(userID: UUID) async throws -> Int {

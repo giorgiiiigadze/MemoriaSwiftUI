@@ -1,6 +1,7 @@
 import SwiftUI
 import Supabase
 import UIKit
+import TipKit
 
 /// The Drop Detail page (native port of the RN `DropDetailScreen`): a full-bleed cover with a glass
 /// back button and (for the creator) an options menu, the drop's info, and its photos grouped by
@@ -15,6 +16,7 @@ struct DropDetailView: View {
 
     private let dropsService = DropsService()
     private let photosService = PhotosService()
+    private let inviteTip = InviteFriendsTip()
 
     @State private var drop: DropWithParticipants?
     @State private var photos: [PhotoWithUploader]
@@ -30,6 +32,7 @@ struct DropDetailView: View {
     @State private var isConfirmingDelete = false
     @State private var isConfirmingDecline = false
     @State private var isConfirmingLeave = false
+    @State private var isInvitingFriends = false
     @State private var errorMessage: String?
 
     init(dropID: UUID, cachedDrop: DropWithParticipants? = nil) {
@@ -109,7 +112,21 @@ struct DropDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .hidesTabBarWhenPushed()
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            // Invite + menu share one group so iOS 26 fuses them into a single Liquid Glass pill,
+            // matching Home's bell/share control. Invite sits left of the ellipsis.
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // Creator only: the `drop_participants` INSERT policy lets a member insert a row
+                // only for themselves, so inviting others (rows with someone else's user_id) is
+                // allowed just for the drop's creator.
+                if isCreator {
+                    Button {
+                        inviteTip.invalidate(reason: .actionPerformed)
+                        isInvitingFriends = true
+                    } label: {
+                        Image(systemName: "person.fill.badge.plus")
+                    }
+                    .popoverTip(inviteTip)
+                }
                 Menu {
                     ShareLink(item: shareText) {
                         Label("Share", systemImage: "square.and.arrow.up")
@@ -176,6 +193,15 @@ struct DropDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("You'll stop seeing this drop and its photos. The host can invite you again later.")
+        }
+        .sheet(isPresented: $isInvitingFriends) {
+            if let userID {
+                InviteFriendsSheet(
+                    dropID: dropID,
+                    participants: drop?.participants ?? [],
+                    inviterID: userID
+                )
+            }
         }
         .alert("Something went wrong", isPresented: errorAlertBinding) {
             Button("OK", role: .cancel) {}

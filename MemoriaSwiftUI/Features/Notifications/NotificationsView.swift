@@ -32,12 +32,25 @@ struct NotificationsView: View {
 
     private var currentUserID: UUID? { appState.session?.user.id }
 
-    /// Today's notifications first, then everything older — only non-empty sections are kept.
+    /// Today first, then the past week, then everything older — only non-empty sections are kept.
+    /// A single pass keeps the incoming newest-first order within each bucket.
     private var sections: [(title: String, items: [NotificationWithMeta])] {
-        let today = notifications.filter(\.isToday)
-        let earlier = notifications.filter { !$0.isToday }
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
+        var today: [NotificationWithMeta] = []
+        var lastWeek: [NotificationWithMeta] = []
+        var earlier: [NotificationWithMeta] = []
+        for notification in notifications {
+            if notification.isToday {
+                today.append(notification)
+            } else if notification.createdAt >= weekAgo {
+                lastWeek.append(notification)
+            } else {
+                earlier.append(notification)
+            }
+        }
         var result: [(String, [NotificationWithMeta])] = []
         if !today.isEmpty { result.append(("Today", today)) }
+        if !lastWeek.isEmpty { result.append(("Last 7 Days", lastWeek)) }
         if !earlier.isEmpty { result.append(("Earlier", earlier)) }
         return result
     }
@@ -79,6 +92,7 @@ struct NotificationsView: View {
                     }
                 }
                 .listStyle(.plain)
+                .listSectionSpacing(Spacing.xs)
                 .scrollContentBackground(.hidden)
                 .background(Colors.background)
                 .refreshable { await load() }
@@ -133,8 +147,8 @@ private struct NotificationRow: View {
     let currentUserID: UUID?
     let myProfile: Profile?
 
-    private let avatarSize: CGFloat = 42
-    private let dualSize: CGFloat = 28
+    private let avatarSize: CGFloat = 46
+    private let dualSize: CGFloat = 34
     private let thumbnailSize: CGFloat = 44
 
     /// A drop notification whose creator is someone other than the current user gets the stacked
@@ -218,6 +232,18 @@ private struct RemoteThumbnail: View {
 
     @State private var image: UIImage?
 
+    init(url: String, size: CGFloat) {
+        self.url = url
+        self.size = size
+        // Instant path: if the bytes are already on disk, seed the state before the first frame so
+        // the thumbnail paints immediately with no placeholder flash.
+        if let resolved = URL(string: url),
+           let cached = AvatarImageCache.data(for: resolved),
+           let img = UIImage(data: cached) {
+            _image = State(initialValue: img)
+        }
+    }
+
     var body: some View {
         RoundedRectangle(cornerRadius: 4)
             .fill(Colors.surface)
@@ -248,7 +274,7 @@ private struct RemoteThumbnail: View {
 /// A shimmering placeholder shown during the first load, mirroring the row layout (avatar, two
 /// text lines, thumbnail) under a section header so the screen has shape before the data arrives.
 private struct NotificationsSkeleton: View {
-    private let avatarSize: CGFloat = 42
+    private let avatarSize: CGFloat = 46
     private let thumbnailSize: CGFloat = 44
 
     var body: some View {

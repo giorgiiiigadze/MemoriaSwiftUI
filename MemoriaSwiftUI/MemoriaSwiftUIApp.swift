@@ -7,11 +7,17 @@
 
 import SwiftUI
 import UIKit
+import TipKit
 
 @main
 struct MemoriaSwiftUIApp: App {
     init() {
         Self.configureTabBarAppearance()
+        // Enable TipKit so feature hints (e.g. the Drop Detail invite button) can appear.
+        try? Tips.configure([
+            .displayFrequency(.immediate),
+            .datastoreLocation(.applicationDefault)
+        ])
     }
 
     var body: some Scene {
