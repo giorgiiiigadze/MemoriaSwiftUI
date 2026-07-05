@@ -204,6 +204,7 @@ struct ProfileView: View {
                 } label: {
                     MiniDropCard(
                         drop: drop,
+                        showCreator: false,
                         onTogglePin: { togglePin(drop) },
                         onView: { viewingDrop = drop }
                     )

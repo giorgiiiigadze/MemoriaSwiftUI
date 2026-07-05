@@ -128,6 +128,31 @@ final class DropsService {
             .execute()
     }
 
+    /// Decline a pending invitation. Flips the participant row to `declined` (rather than deleting
+    /// it) so the invite doesn't simply reappear on the next sync and the creator can still see the
+    /// person passed. RLS then drops the user's access to the drop's photos.
+    func declineInvite(dropID: UUID, userID: UUID) async throws {
+        try await client
+            .from("drop_participants")
+            .update(["status": ParticipantStatus.declined.rawValue])
+            .eq("drop_id", value: dropID)
+            .eq("user_id", value: userID)
+            .execute()
+    }
+
+    /// Leave a drop the caller had accepted — flips their own `drop_participants` row to `removed`,
+    /// which (like `declined`) drops it out of their feed via the `is_drop_participant` RLS check and
+    /// revokes photo access. Their already-uploaded photos stay (the `photos` table forbids deletes).
+    /// RLS lets a user update their own participant row.
+    func leaveDrop(dropID: UUID, userID: UUID) async throws {
+        try await client
+            .from("drop_participants")
+            .update(["status": ParticipantStatus.removed.rawValue])
+            .eq("drop_id", value: dropID)
+            .eq("user_id", value: userID)
+            .execute()
+    }
+
     /// Pin or unpin a drop. Only the creator may — enforced by the `drops` table's RLS.
     func setPinned(dropID: UUID, pinned: Bool) async throws {
         try await client

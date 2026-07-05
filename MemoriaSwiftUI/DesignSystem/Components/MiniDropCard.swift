@@ -5,6 +5,9 @@ import SwiftUI
 /// Profile drops grid — both render `CalendarDrop`s as a compact 3:4 tile.
 struct MiniDropCard: View {
     let drop: CalendarDrop
+    /// Whether to show the creator's name above the date. Off on the Profile grid, where every drop
+    /// belongs to the viewer so their own name would be redundant.
+    var showCreator: Bool = true
     /// Provided only when the drop is pinnable (the viewer owns it); when nil the context menu
     /// omits the Pin item. Toggles `drop.isPinned` — the parent persists and updates its list.
     var onTogglePin: (() -> Void)? = nil
@@ -27,10 +30,12 @@ struct MiniDropCard: View {
             // a compact caption on these small tiles. The date drops below the smallest Typography
             // token (12), so it uses a literal 11.
             VStack(alignment: .leading, spacing: 2) {
-                Text(drop.creatorName)
-                    .font(Typography.font(.xs, weight: .semiBold))
-                    .foregroundStyle(Colors.white)
-                    .lineLimit(1)
+                if showCreator {
+                    Text(drop.creatorName)
+                        .font(Typography.font(.xs, weight: .semiBold))
+                        .foregroundStyle(Colors.white)
+                        .lineLimit(1)
+                }
                 Text(Self.dateFormatter.string(from: drop.createdAt))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Colors.white.opacity(0.75))

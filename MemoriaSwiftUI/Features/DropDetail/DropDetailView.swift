@@ -22,10 +22,13 @@ struct DropDetailView: View {
 
     @State private var isUploading = false
     @State private var isAccepting = false
+    @State private var isDeclining = false
     @State private var isShowingCamera = false
     @State private var viewerIndex: Int?
     @State private var isShowingLockedNote = false
     @State private var isConfirmingDelete = false
+    @State private var isConfirmingDecline = false
+    @State private var isConfirmingLeave = false
     @State private var errorMessage: String?
 
     init(dropID: UUID, cachedDrop: DropWithParticipants? = nil) {
@@ -51,6 +54,8 @@ struct DropDetailView: View {
     /// Invited but hasn't joined yet — must accept before they can see photos or contribute.
     private var isInvited: Bool { myParticipation?.status == .invited || myParticipation?.status == .pending }
     private var isAcceptedMember: Bool { isCreator || myParticipation?.status == .accepted }
+    /// An accepted, non-creator member — the only role that can leave the drop.
+    private var canLeave: Bool { !isCreator && myParticipation?.status == .accepted }
 
     /// Contributions are open while the drop is still collecting (active/ready) — for members only.
     private var canUpload: Bool { isLocked && isAcceptedMember }
@@ -81,6 +86,7 @@ struct DropDetailView: View {
                 }
                 .padding(.bottom, hasBottomBar ? 120 : Spacing.xxxxl)
             }
+            .scrollIndicators(.hidden)
             // Let the cover run up under the (transparent) nav bar, so it's already behind the
             // header the moment the page appears.
             .ignoresSafeArea(edges: .top)
@@ -114,6 +120,14 @@ struct DropDetailView: View {
                         }
                         .tint(Colors.error)
                     }
+                    if canLeave {
+                        Button(role: .destructive) {
+                            isConfirmingLeave = true
+                        } label: {
+                            Label("Leave Drop", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                        .tint(Colors.error)
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                 }
@@ -141,6 +155,18 @@ struct DropDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This permanently deletes the drop and all its photos for everyone.")
+        }
+        .alert("Decline Invitation", isPresented: $isConfirmingDecline) {
+            Button("Decline", role: .destructive) { decline() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This drop will disappear from your feed. The host can invite you again later.")
+        }
+        .alert("Leave Drop", isPresented: $isConfirmingLeave) {
+            Button("Leave", role: .destructive) { leave() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll stop seeing this drop and its photos. The host can invite you again later.")
         }
         .alert("Something went wrong", isPresented: errorAlertBinding) {
             Button("OK", role: .cancel) {}
@@ -289,24 +315,49 @@ struct DropDetailView: View {
     private var acceptBar: some View {
         VStack {
             Spacer()
-            Button {
-                accept()
-            } label: {
-                Group {
-                    if isAccepting {
-                        ProgressView().tint(Colors.ink)
-                    } else {
-                        Text("Accept Invitation")
-                            .font(Typography.font(.body, weight: .semiBold))
+            HStack(spacing: Spacing.md) {
+                Button {
+                    accept()
+                } label: {
+                    Group {
+                        if isAccepting {
+                            ProgressView().tint(Colors.ink)
+                        } else {
+                            Text("Accept Invitation")
+                                .font(Typography.font(.body, weight: .semiBold))
+                        }
+                    }
+                    .foregroundStyle(Colors.ink)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.md)
+                    .background(Colors.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isAccepting || isDeclining)
+
+                // Decline sits to the right of Accept as its destructive counterpart: a native
+                // Liquid Glass circle (iOS 26) tinted the system red, so the xmark reads red on
+                // clear glass. Same large-glass proportions as the header controls.
+                Button {
+                    isConfirmingDecline = true
+                } label: {
+                    Group {
+                        if isDeclining {
+                            ProgressView().tint(Colors.error)
+                        } else {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 18, weight: .semibold))
+                        }
                     }
                 }
-                .foregroundStyle(Colors.ink)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.md)
-                .background(Colors.white, in: Capsule())
+                .glassChromeButton(
+                    .circle,
+                    fallbackShape: Circle(),
+                    fallbackInsets: EdgeInsets(top: 15, leading: 15, bottom: 15, trailing: 15),
+                    tint: Colors.error
+                )
+                .disabled(isAccepting || isDeclining)
             }
-            .buttonStyle(.plain)
-            .disabled(isAccepting)
             .padding(.horizontal, Spacing.xl)
             .padding(.bottom, Spacing.xxxl)
         }
@@ -369,6 +420,35 @@ struct DropDetailView: View {
                 errorMessage = "Could not accept the invitation. Please try again."
             }
             isAccepting = false
+        }
+    }
+
+    private func decline() {
+        guard let userID else { return }
+        isDeclining = true
+        Task {
+            do {
+                try await dropsService.declineInvite(dropID: dropID, userID: userID)
+                // They've opted out — leave the drop. RLS has already revoked their access, so
+                // there's nothing left to show here.
+                dismiss()
+            } catch {
+                errorMessage = "Could not decline the invitation. Please try again."
+                isDeclining = false
+            }
+        }
+    }
+
+    private func leave() {
+        guard let userID else { return }
+        Task {
+            do {
+                try await dropsService.leaveDrop(dropID: dropID, userID: userID)
+                // They've left — RLS has revoked their access, so drop back out of the drop.
+                dismiss()
+            } catch {
+                errorMessage = "Could not leave the drop. Please try again."
+            }
         }
     }
 

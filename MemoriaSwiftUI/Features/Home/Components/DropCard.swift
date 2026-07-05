@@ -5,7 +5,8 @@ import SwiftUI
 /// participant avatars overlaid along the bottom.
 struct DropCard: View {
     let drop: DropWithParticipants
-    /// When `true` the header leads with the creator's name; otherwise it leads with the drop title.
+    /// When `true` the header lead line appends the creator after the drop name ("Name · Creator");
+    /// otherwise it shows the drop name alone.
     var showCreator: Bool = true
     /// The signed-in user's id, so the menu only offers "Delete" on the user's own drops.
     var currentUserID: UUID?
@@ -27,7 +28,11 @@ struct DropCard: View {
     private let placeholderGlyphSize: CGFloat = 32
 
     private var creatorName: String? { showCreator ? drop.creator?.name : nil }
-    private var primary: String { creatorName ?? drop.title }
+    /// Header lead line: the drop's name, then the creator when shown — e.g. "Beach Day · Alex".
+    private var primary: String {
+        if let creatorName { return "\(drop.title) · \(creatorName)" }
+        return drop.title
+    }
     private var showAvatar: Bool { drop.creator?.avatarURL != nil || creatorName != nil }
     private var isCreator: Bool { currentUserID != nil && currentUserID == drop.creator?.id }
     private var dateLabel: String? { DropTime.label(state: drop.state, date: drop.openDate) }

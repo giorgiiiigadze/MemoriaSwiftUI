@@ -58,15 +58,16 @@ extension View {
     func glassChromeButton(
         _ borderShape: ButtonBorderShape,
         fallbackShape: some InsettableShape,
-        fallbackInsets: EdgeInsets
+        fallbackInsets: EdgeInsets,
+        tint: Color = Colors.white
     ) -> some View {
         if #available(iOS 26, *) {
             buttonStyle(.glass)
                 .buttonBorderShape(borderShape)
                 .controlSize(.large)
-                .tint(Colors.white)
+                .tint(tint)
         } else {
-            foregroundStyle(Colors.white)
+            foregroundStyle(tint)
                 .padding(fallbackInsets)
                 .background(Colors.glassChromeFallback, in: fallbackShape)
                 .overlay { fallbackShape.strokeBorder(Colors.glassChromeBorder, lineWidth: 1) }
