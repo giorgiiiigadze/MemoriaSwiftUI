@@ -93,6 +93,9 @@ struct HomeView: View {
         .task(id: refreshToken) { await load() }
         // Live-update the bell badge: re-count whenever this user's notifications change.
         .task(id: currentUserID) { await observeNotifications() }
+        // Live feed: refetch whenever a drop the user can see changes, or they're invited to a new
+        // one — so a drop someone else creates (and invites them to) appears without a manual refresh.
+        .task(id: currentUserID) { await observeFeed() }
         .alert("Delete Failed", isPresented: $didDeleteFail) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -165,31 +168,33 @@ struct HomeView: View {
         }
     }
 
-    /// Subscribes to Postgres changes on this user's `notifications` rows and re-counts the badge on
-    /// every insert/update/delete, so it updates live without reopening the page. The channel is
-    /// torn down when the task is cancelled (view goes away or the user changes).
+    /// Live bell badge: re-counts this user's unread notifications whenever their `notifications`
+    /// rows change, without reopening the page. Torn down when the task is cancelled.
     private func observeNotifications() async {
         guard let currentUserID else { return }
-        let channel = SupabaseClient.shared.channel("notif-badge-\(currentUserID.uuidString)")
-        let changes = channel.postgresChange(
-            AnyAction.self,
-            schema: "public",
-            table: "notifications",
-            filter: .eq("user_id", value: currentUserID.uuidString)
+        await RealtimeWatch.run(
+            topic: "notif-badge-\(currentUserID.uuidString)",
+            sources: [
+                .init("notifications", filter: .eq("user_id", value: currentUserID.uuidString))
+            ],
+            onChange: { await loadUnread() }
         )
-        // `subscribeWithError` replaces the deprecated `subscribe()` — it throws if the channel
-        // fails to join. On failure, bail out silently; the badge just keeps its last value.
-        do {
-            try await channel.subscribeWithError()
-        } catch {
-            return
-        }
-        defer { Task { await channel.unsubscribe() } }
-        // Reconcile once on connect, then on every change event.
-        await loadUnread()
-        for await _ in changes {
-            await loadUnread()
-        }
+    }
+
+    /// Live feed: refetches the drop list whenever a drop the user can see changes, or a new
+    /// `drop_participants` row invites them to one. RLS already scopes the `drops` events to drops
+    /// this user is allowed to see, and the invite arrives as their own participant row, so a drop
+    /// someone else just created shows up here with no manual refresh.
+    private func observeFeed() async {
+        guard let currentUserID else { return }
+        await RealtimeWatch.run(
+            topic: "home-feed-\(currentUserID.uuidString)",
+            sources: [
+                .init("drops"),
+                .init("drop_participants", filter: .eq("user_id", value: currentUserID.uuidString)),
+            ],
+            onChange: { await load() }
+        )
     }
 
     /// Optimistically drops the row, then deletes on the server — restoring the feed (and the

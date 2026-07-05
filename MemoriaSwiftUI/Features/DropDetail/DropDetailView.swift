@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 import UIKit
 
 /// The Drop Detail page (native port of the RN `DropDetailScreen`): a full-bleed cover with a glass
@@ -120,6 +121,9 @@ struct DropDetailView: View {
         }
         .tint(Colors.textPrimary)
         .task { await load() }
+        // Live drop: refetch when another participant uploads a photo, the drop opens/changes, or
+        // someone accepts their invite — so the grid and header stay current without reopening.
+        .task(id: dropID) { await observeLive() }
         .fullScreenCover(isPresented: $isShowingCamera) {
             CameraPicker { image in Task { await upload(image) } }
                 .ignoresSafeArea()
@@ -335,6 +339,21 @@ struct DropDetailView: View {
             DropDetailCache.storePhotos(fetched, for: dropID)
         }
         photosLoaded = true
+    }
+
+    /// Subscribes to this drop's photos, its own row, and its participant rows; any change refetches
+    /// the drop + grid. So another member's upload lands live, the grid reveals the moment the drop
+    /// opens, and the header updates as people accept. Torn down when the view goes away.
+    private func observeLive() async {
+        await RealtimeWatch.run(
+            topic: "drop-detail-\(dropID.uuidString)",
+            sources: [
+                .init("photos", filter: .eq("drop_id", value: dropID.uuidString)),
+                .init("drops", filter: .eq("id", value: dropID.uuidString)),
+                .init("drop_participants", filter: .eq("drop_id", value: dropID.uuidString)),
+            ],
+            onChange: { await load() }
+        )
     }
 
     private func accept() {
