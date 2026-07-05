@@ -291,7 +291,7 @@ struct DropDetailView: View {
             // In the upload-first case the inline "Upload first" button below carries the camera
             // affordance, so the decorative icon would be redundant; other empty states keep it.
             if !showsUploadPrompt {
-                Image(systemName: "photo.on.rectangle.angled")
+                Image(systemName: emptyIcon)
                     .font(.system(size: 26))
                     .foregroundStyle(Colors.white)
                     .padding(.bottom, Spacing.xxs)
@@ -316,13 +316,20 @@ struct DropDetailView: View {
         .padding(.horizontal, Spacing.xl)
     }
 
+    /// An envelope for the not-yet-accepted invitee; the photo glyph for everyone else.
+    private var emptyIcon: String {
+        isInvited ? "envelope.open" : "photo.on.rectangle.angled"
+    }
+
     private var emptyTitle: String {
+        if isInvited { return "You're invited" }
         if isLocked && canUpload { return "Be the first" }
         if isLocked { return "No photos yet" }
         return "Nothing was shared"
     }
 
     private var emptySubtitle: String {
+        if isInvited { return "Accept the invitation to see and add photos." }
         if isLocked && canUpload { return "Add the first photo to this drop." }
         if isLocked { return "Participants haven't uploaded anything yet." }
         return "No photos were uploaded before this drop closed."
