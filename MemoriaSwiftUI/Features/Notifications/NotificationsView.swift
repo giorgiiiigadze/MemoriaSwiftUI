@@ -77,8 +77,8 @@ struct NotificationsView: View {
                                     currentUserID: currentUserID,
                                     myProfile: appState.profile
                                 )
-                                .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.md,
-                                                          bottom: Spacing.sm, trailing: Spacing.md))
+                                .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.md,
+                                                          bottom: Spacing.xs, trailing: Spacing.md))
                                 .listRowBackground(notification.read ? Colors.background : Colors.surface)
                                 .listRowSeparator(.hidden)
                                 .contentShape(.rect)
@@ -147,8 +147,8 @@ private struct NotificationRow: View {
     let currentUserID: UUID?
     let myProfile: Profile?
 
-    private let avatarSize: CGFloat = 46
-    private let dualSize: CGFloat = 34
+    private let avatarSize: CGFloat = 50
+    private let dualSize: CGFloat = 37
     private let thumbnailSize: CGFloat = 44
 
     /// A drop notification whose creator is someone other than the current user gets the stacked
@@ -171,7 +171,7 @@ private struct NotificationRow: View {
             // regular tertiary secondary, no gap), but with a larger `.md` primary.
             VStack(alignment: .leading, spacing: 0) {
                 Text(notification.text)
-                    .font(Typography.font(.md, weight: .medium))
+                    .font(Typography.font(.body, weight: .medium))
                     .foregroundStyle(Colors.white)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(notification.timeAgo)
@@ -274,7 +274,7 @@ private struct RemoteThumbnail: View {
 /// A shimmering placeholder shown during the first load, mirroring the row layout (avatar, two
 /// text lines, thumbnail) under a section header so the screen has shape before the data arrives.
 private struct NotificationsSkeleton: View {
-    private let avatarSize: CGFloat = 46
+    private let avatarSize: CGFloat = 50
     private let thumbnailSize: CGFloat = 44
 
     var body: some View {
