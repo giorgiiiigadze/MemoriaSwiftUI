@@ -20,6 +20,7 @@ struct AccountSwitcherSheet: View {
                     .onDelete(perform: removeAccounts)
 
                     addAccountRow
+                    createAccountRow
                 }
             }
             .scrollContentBackground(.hidden)
@@ -66,17 +67,27 @@ struct AccountSwitcherSheet: View {
         .listRowBackground(Colors.surface)
     }
 
+    /// Signs into an account that already exists (opens the log-in flow).
     private var addAccountRow: some View {
+        accountActionRow(icon: "plus.circle.fill", title: "Add account", mode: .signIn)
+    }
+
+    /// Creates a brand-new account (opens the sign-up flow), keeping the current one saved.
+    private var createAccountRow: some View {
+        accountActionRow(icon: "person.crop.circle.badge.plus", title: "Create account", mode: .signUp)
+    }
+
+    private func accountActionRow(icon: String, title: String, mode: AddAccountMode) -> some View {
         Button {
             dismiss()
-            appState.beginAddAccount()
+            appState.beginAddAccount(mode: mode)
         } label: {
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "plus.circle.fill")
+                Image(systemName: icon)
                     .font(.system(size: 30))
                     .foregroundStyle(Colors.textSecondary)
                     .frame(width: 44, height: 44)
-                Text("Add account")
+                Text(title)
                     .font(Typography.font(.body, weight: .semiBold))
                     .foregroundStyle(Colors.textPrimary)
                 Spacer(minLength: 0)

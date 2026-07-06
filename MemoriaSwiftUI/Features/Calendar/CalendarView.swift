@@ -11,6 +11,8 @@ struct CalendarView: View {
     @State private var errorMessage: String?
     /// Drop whose detail page to push — driven by the card's "View drop" context-menu item.
     @State private var viewingDrop: CalendarDrop?
+    /// Presents the Create Drop flow from the empty-state button.
+    @State private var isShowingCreateDrop = false
 
     private let service = DropsService()
 
@@ -53,6 +55,11 @@ struct CalendarView: View {
         }
         .preferredColorScheme(.dark)
         .task { await load() }
+        .sheet(isPresented: $isShowingCreateDrop) {
+            CreateDropView {
+                Task { await load() }
+            }
+        }
     }
 
     @ViewBuilder
@@ -73,11 +80,7 @@ struct CalendarView: View {
             .padding(Spacing.xl)
             Spacer()
         } else if sections.isEmpty {
-            Spacer()
-            Text("No memories yet")
-                .font(Typography.font(.md, weight: .medium))
-                .foregroundStyle(Colors.textSecondary)
-            Spacer()
+            emptyState
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Spacing.xxl) {
@@ -113,6 +116,28 @@ struct CalendarView: View {
                 DropDetailView(dropID: drop.id)
             }
         }
+    }
+
+    /// Same friendly empty state as the Profile tab: an icon-in-button "Create a drop" prompt over a
+    /// headline and softer suggestion line, centered.
+    private var emptyState: some View {
+        VStack(spacing: Spacing.xxs) {
+            Text("No drops yet")
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text("Create your first drop to start a memory.")
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+
+            CompactPillButton(title: "Create a drop", systemImage: "camera.viewfinder") {
+                isShowingCreateDrop = true
+            }
+            .padding(.top, Spacing.md)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xxxxl)
+        .padding(.bottom, Spacing.xxxl)
     }
 
     /// Flip a drop's pinned state (creator-only). Updates in place — the badge reflects it; the

@@ -16,6 +16,12 @@ enum AppTab {
     case home, friends, calendar, profile
 }
 
+/// Which auth flow the add-account cover opens on: `signIn` (existing account) or `signUp`
+/// (create a new account), both presented over the app without losing the current session.
+enum AddAccountMode {
+    case signIn, signUp
+}
+
 @Observable
 final class AppState {
     private(set) var phase: RootPhase = .splash
@@ -30,6 +36,10 @@ final class AppState {
     /// Drives the add-account cover: while true, `RootView` presents the auth flow over the app so
     /// the user can sign into another account without losing the current one.
     var isAddingAccount = false
+
+    /// Which auth flow the add-account cover shows — sign in to an existing account, or create a
+    /// brand-new one. Set by `beginAddAccount(mode:)` before the cover appears.
+    var addAccountMode: AddAccountMode = .signIn
 
     /// Set when a switch fails because the stored token was stale; surfaced as an alert, then cleared.
     var switchErrorMessage: String?
@@ -71,6 +81,14 @@ final class AppState {
         phase = .app
     }
 
+    /// Mirrors the DB trigger's `has_created_first_drop` flip locally once the user has a drop, so
+    /// the Home "Create your first drop" tile hides immediately without waiting for a profile
+    /// refetch. A no-op once already set.
+    func markFirstDropCreated() {
+        guard profile?.hasCreatedFirstDrop == false else { return }
+        profile?.hasCreatedFirstDrop = true
+    }
+
     /// Called by `AuthView` right after a successful sign-up that returns a session
     /// immediately (no email confirmation step). Skips straight to `.profileSetup` instead
     /// of waiting on the `authStateChanges` listener to independently pick up `.signedIn`
@@ -90,8 +108,10 @@ final class AppState {
 
     /// Presents the auth flow over the app so the user can add another account without signing out
     /// of the current one. The current session stays active (and already saved) until a new sign-in
-    /// replaces it, so cancelling just returns to the current account.
-    func beginAddAccount() {
+    /// (or sign-up) replaces it, so cancelling just returns to the current account. `mode` picks
+    /// whether the cover opens on the log-in flow (default) or the create-account (sign-up) flow.
+    func beginAddAccount(mode: AddAccountMode = .signIn) {
+        addAccountMode = mode
         isAddingAccount = true
     }
 

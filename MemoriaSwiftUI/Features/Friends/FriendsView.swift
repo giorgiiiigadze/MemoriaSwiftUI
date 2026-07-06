@@ -290,8 +290,10 @@ struct FriendsView: View {
     // MARK: Data
 
     private func load() async {
-        guard let userID else { return }
+        // Always clear the skeleton, even if there's no user yet — otherwise an early return here
+        // leaves the page stuck on `loadingSkeleton` forever.
         defer { isLoaded = true }
+        guard let userID else { return }
         do {
             connections = try await service.fetchConnections(userID: userID)
             errorMessage = nil

@@ -77,7 +77,20 @@ struct InviteView: View {
         case .needsPermission:
             permissionPrompt
         case .failed:
-            infoText("Couldn't load your contacts.")
+            VStack(spacing: Spacing.md) {
+                infoText("Couldn't load your contacts.")
+                Button {
+                    Task { await loadContacts() }
+                } label: {
+                    Text("Try again")
+                        .font(Typography.font(.body, weight: .semiBold))
+                        .foregroundStyle(Colors.ink)
+                        .padding(.vertical, Spacing.sm)
+                        .padding(.horizontal, Spacing.xl)
+                        .background(Colors.white, in: RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
         case .loaded:
             if contacts.isEmpty {
                 infoText("Everyone in your contacts is already on Memoria. 🎉")
@@ -172,7 +185,11 @@ struct InviteView: View {
     }
 
     private func loadContacts() async {
-        guard let userID else { return }
+        // No profile yet → surface the retryable failed state rather than hanging on the skeleton.
+        guard let userID else {
+            phase = .failed
+            return
+        }
         phase = .loading
         do {
             let all = try await service.fetchDeviceContacts()

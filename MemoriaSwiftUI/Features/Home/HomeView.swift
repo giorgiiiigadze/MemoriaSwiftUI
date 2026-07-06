@@ -20,6 +20,8 @@ struct HomeView: View {
     @State private var query = ""
     @State private var isSearchActive = false
     @State private var isSearchPresented = false
+    /// Presents the Create Drop flow from the empty-state button.
+    @State private var isShowingCreateDrop = false
 
     private let service = DropsService()
     private let notificationsService = NotificationsService()
@@ -48,6 +50,14 @@ struct HomeView: View {
     }
 
     private var currentUserID: UUID? { appState.session?.user.id }
+
+    /// Greeting name for the first-drop card: display name, then handle, then a neutral fallback —
+    /// mirroring the RN `display_name || username || 'there'`.
+    private var greetingName: String {
+        if let displayName = appState.profile?.displayName, !displayName.isEmpty { return displayName }
+        if let username = appState.profile?.username, !username.isEmpty { return username }
+        return "there"
+    }
 
     /// The trimmed, lower-cased search query, or empty when not searching.
     private var trimmedQuery: String {
@@ -143,6 +153,11 @@ struct HomeView: View {
         } message: {
             Text("Could not delete the drop. Please try again.")
         }
+        .sheet(isPresented: $isShowingCreateDrop) {
+            CreateDropView {
+                Task { await load() }
+            }
+        }
     }
 
     @ViewBuilder
@@ -150,7 +165,18 @@ struct HomeView: View {
         if isLoading {
             feedSkeleton
         } else if drops.isEmpty {
-            emptyState
+            // A brand-new user (hasn't created their first drop yet) gets the dashed onboarding tile;
+            // any other empty feed shows the plain "No drops yet" message.
+            if appState.profile?.hasCreatedFirstDrop == false && errorMessage == nil {
+                ScrollView {
+                    CreateFirstDropCard(name: greetingName) { isShowingCreateDrop = true }
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.top, Spacing.md)
+                }
+                .scrollDisabled(true)
+            } else {
+                emptyState
+            }
         } else {
             RefreshableGridScrollView(onRefresh: { await load() }) {
                 if filteredDrops.isEmpty {
@@ -205,9 +231,13 @@ struct HomeView: View {
         .scrollDisabled(true)
     }
 
+    /// Shown when the feed is empty. On error it explains the failure; otherwise a friendly
+    /// first-run prompt (matching the Profile empty state) with an icon over a headline, a softer
+    /// suggestion line, and a "Create a drop" button that opens the Create Drop flow.
+    @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: Spacing.sm) {
-            if let errorMessage {
+        if let errorMessage {
+            VStack(spacing: Spacing.sm) {
                 Text("Couldn't load drops")
                     .font(Typography.font(.md, weight: .semiBold))
                     .foregroundStyle(Colors.textPrimary)
@@ -215,13 +245,27 @@ struct HomeView: View {
                     .font(Typography.font(.sm))
                     .foregroundStyle(Colors.textSecondary)
                     .multilineTextAlignment(.center)
-            } else {
-                Text("No drops yet")
-                    .font(Typography.font(.md, weight: .medium))
-                    .foregroundStyle(Colors.textSecondary)
             }
+            .padding(Spacing.xl)
+        } else {
+            VStack(spacing: Spacing.xxs) {
+                Text("No drops yet")
+                    .font(Typography.font(.md, weight: .semiBold))
+                    .foregroundStyle(Colors.white)
+                Text("Create your first drop to start a memory.")
+                    .font(Typography.font(.sm))
+                    .foregroundStyle(Colors.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+
+                CompactPillButton(title: "Create a drop", systemImage: "camera.viewfinder") {
+                    isShowingCreateDrop = true
+                }
+                .padding(.top, Spacing.md)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, Spacing.xxxxl)
+            .padding(.bottom, Spacing.xxxl)
         }
-        .padding(Spacing.xl)
     }
 
     private func load() async {
@@ -230,6 +274,10 @@ struct HomeView: View {
             drops = fetched
             HomeDropsCache.store(fetched)
             errorMessage = nil
+            // Once the user has any drop, the first-drop onboarding tile has served its purpose. The
+            // DB trigger already flips the column on creation; mirror it locally so the UI updates
+            // this session without waiting for a profile refetch.
+            if !fetched.isEmpty { appState.markFirstDropCreated() }
         } catch {
             // Only surface the error when there's nothing cached to show; otherwise keep the
             // stale-but-useful cached feed on screen and stay silent. Cancellations (fast tab

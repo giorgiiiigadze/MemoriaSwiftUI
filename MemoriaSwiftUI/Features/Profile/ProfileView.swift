@@ -158,10 +158,6 @@ struct ProfileView: View {
         action: (() -> Void)? = nil
     ) -> some View {
         VStack(spacing: Spacing.xxs) {
-            Image(systemName: icon)
-                .font(.system(size: 26, weight: .regular))
-                .foregroundStyle(Colors.white)
-                .padding(.bottom, Spacing.xxs)
             Text(title)
                 .font(Typography.font(.md, weight: .semiBold))
                 .foregroundStyle(Colors.white)
@@ -171,7 +167,7 @@ struct ProfileView: View {
                 .multilineTextAlignment(.center)
 
             if let actionTitle, let action {
-                CompactPillButton(title: actionTitle, action: action)
+                CompactPillButton(title: actionTitle, systemImage: icon, action: action)
                     .padding(.top, Spacing.md)
             }
         }

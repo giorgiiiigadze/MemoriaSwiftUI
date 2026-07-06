@@ -605,31 +605,33 @@ private struct PhotoViewer: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            TabView(selection: $index) {
-                ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
-                    CachedImage(url: photo.imageURL) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        ProgressView().tint(Colors.white)
+                TabView(selection: $index) {
+                    ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
+                        CachedImage(url: photo.imageURL) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            ProgressView().tint(Colors.white)
+                        }
+                        .tag(offset)
                     }
-                    .tag(offset)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .ignoresSafeArea()
+            }
+            // Native header: a transparent nav bar carrying the system liquid-glass dismiss button.
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.down")
+                    }
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-            .ignoresSafeArea()
-
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Colors.white)
-                    .padding(12)
-                    .background(.black.opacity(0.4), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .padding(Spacing.lg)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .tint(Colors.white)
         }
     }
 }

@@ -61,8 +61,17 @@ struct RootView: View {
             get: { appState.isAddingAccount },
             set: { if !$0 { appState.cancelAddAccount() } }
         )) {
-            LoginView(onDismiss: { appState.cancelAddAccount() })
-                .environment(appState)
+            Group {
+                switch appState.addAccountMode {
+                case .signIn:
+                    LoginView(onDismiss: { appState.cancelAddAccount() })
+                case .signUp:
+                    // Create a brand-new account: the full sign-up flow, with a back control on its
+                    // root step to close the cover and return to the current account.
+                    AuthView(onCancel: { appState.cancelAddAccount() })
+                }
+            }
+            .environment(appState)
         }
         .alert(
             "Switch Failed",

@@ -11,6 +11,11 @@ import Supabase
 struct AuthView: View {
     @Environment(AppState.self) private var appState
 
+    /// When non-nil, the flow is presented as the "Create account" cover over the app: the email
+    /// (root) step then shows a back control that calls this to close the cover. Nil in the normal
+    /// unauthenticated root, where the email step is the true root and shows no back button.
+    var onCancel: (() -> Void)? = nil
+
     private enum SignUpStep {
         case email, password
     }
@@ -71,10 +76,11 @@ struct AuthView: View {
         .animation(.easeInOut(duration: 0.2), value: step)
     }
 
-    /// Back is only meaningful on the password step (returns to email); the email step is the
-    /// flow's root, so it shows no back button.
+    /// Back returns to the email step from the password step; on the email (root) step it closes the
+    /// add-account cover when presented as one (`onCancel`), or shows no back button in the normal
+    /// unauthenticated root.
     private var headerBackAction: (() -> Void)? {
-        guard step == .password else { return nil }
+        guard step == .password else { return onCancel }
         return { goToEmailStep() }
     }
 
