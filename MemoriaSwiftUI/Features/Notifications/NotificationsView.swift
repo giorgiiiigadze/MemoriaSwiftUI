@@ -62,11 +62,7 @@ struct NotificationsView: View {
             if !isLoaded {
                 NotificationsSkeleton()
             } else if notifications.isEmpty {
-                ContentUnavailableView(
-                    "No Notifications",
-                    systemImage: "bell.slash",
-                    description: Text("You're all caught up. New activity will show up here.")
-                )
+                emptyState
             } else {
                 List {
                     ForEach(sections, id: \.title) { section in
@@ -105,6 +101,27 @@ struct NotificationsView: View {
             DropDetailView(dropID: dropID)
         }
         .task { await load() }
+    }
+
+    /// Friendly empty state matching the Friends tab's "No users found": an icon over a white
+    /// headline and a softer suggestion line, centered and pushed down from the top.
+    private var emptyState: some View {
+        VStack(spacing: Spacing.xxs) {
+            Image(systemName: "bell.slash.fill")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(Colors.white)
+                .padding(.bottom, Spacing.xxs)
+            Text("No notifications")
+                .font(Typography.font(.md, weight: .semiBold))
+                .foregroundStyle(Colors.white)
+            Text("You're all caught up. New activity will show up here.")
+                .font(Typography.font(.sm))
+                .foregroundStyle(Colors.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Spacing.xxxxl)
+        .padding(.bottom, Spacing.xxxl)
     }
 
     private func load() async {

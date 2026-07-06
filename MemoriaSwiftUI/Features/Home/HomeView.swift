@@ -169,11 +169,16 @@ struct HomeView: View {
             // any other empty feed shows the plain "No drops yet" message.
             if appState.profile?.hasCreatedFirstDrop == false && errorMessage == nil {
                 ScrollView {
-                    CreateFirstDropCard(name: greetingName) { isShowingCreateDrop = true }
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.top, Spacing.md)
+                    VStack(spacing: Spacing.xxl) {
+                        CreateFirstDropCard(name: greetingName) { isShowingCreateDrop = true }
+                        HowItWorksSteps()
+                            .padding(.horizontal, Spacing.xs)
+                    }
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.md)
+                    .padding(.bottom, Spacing.xxxxl)
                 }
-                .scrollDisabled(true)
+                .scrollIndicators(.hidden)
             } else {
                 emptyState
             }

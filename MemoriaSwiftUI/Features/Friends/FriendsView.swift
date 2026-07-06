@@ -149,7 +149,7 @@ struct FriendsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(Colors.white)
                 }
                 .padding(Spacing.lg)
