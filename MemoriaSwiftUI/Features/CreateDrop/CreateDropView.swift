@@ -77,7 +77,7 @@ struct CreateDropView: View {
         }
         .onAppear { nameFocused = step == .name }
         .fullScreenCover(isPresented: $isShowingCamera) {
-            CameraPicker { coverImage = $0 }
+            CameraView { coverImage = $0 }
                 .ignoresSafeArea()
         }
     }

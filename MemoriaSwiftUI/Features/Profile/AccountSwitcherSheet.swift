@@ -23,14 +23,15 @@ struct AccountSwitcherSheet: View {
                     createAccountRow
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Colors.background)
+            .listRowSeparator(.hidden)
             .navigationTitle("Accounts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .tint(Colors.textPrimary)
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .tint(Colors.textPrimary)
                 }
             }
         }
@@ -64,7 +65,6 @@ struct AccountSwitcherSheet: View {
             }
             .contentShape(Rectangle())
         }
-        .listRowBackground(Colors.surface)
     }
 
     /// Signs into an account that already exists (opens the log-in flow).
@@ -85,7 +85,7 @@ struct AccountSwitcherSheet: View {
             HStack(spacing: Spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 30))
-                    .foregroundStyle(Colors.textSecondary)
+                    .foregroundStyle(Colors.white)
                     .frame(width: 44, height: 44)
                 Text(title)
                     .font(Typography.font(.body, weight: .semiBold))
@@ -94,7 +94,6 @@ struct AccountSwitcherSheet: View {
             }
             .contentShape(Rectangle())
         }
-        .listRowBackground(Colors.surface)
     }
 
     private func switchTo(_ account: SavedAccount) {

@@ -165,7 +165,7 @@ struct DropDetailView: View {
         // someone accepts their invite — so the grid and header stay current without reopening.
         .task(id: dropID) { await observeLive() }
         .fullScreenCover(isPresented: $isShowingCamera) {
-            CameraPicker { image in Task { await upload(image) } }
+            CameraView { image in await upload(image) }
                 .ignoresSafeArea()
         }
         .fullScreenCover(item: viewerBinding) { start in

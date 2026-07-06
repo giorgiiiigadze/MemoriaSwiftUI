@@ -86,9 +86,8 @@ struct HomeView: View {
             .onAppear { Task { await loadUnread() } }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Two buttons in one ToolbarItemGroup → the system renders them as a single
-                // native Liquid Glass pill on iOS 26 (BeReal's top control), no custom capsule.
-                ToolbarItemGroup(placement: .topBarLeading) {
+                // Standalone glass buttons: notifications on the left, search on the right.
+                ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
                         NotificationsView(onOpenFriends: onOpenFriends)
                     } label: {
@@ -108,6 +107,8 @@ struct HomeView: View {
                             ? "Notifications, \(unreadCount) unread"
                             : "Notifications")
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         // Attach the native search field (like the Friends tab), but on demand
                         // rather than always-visible. The onChange below then presents it.
