@@ -169,10 +169,13 @@ struct HomeView: View {
             // any other empty feed shows the plain "No drops yet" message.
             if appState.profile?.hasCreatedFirstDrop == false && errorMessage == nil {
                 ScrollView {
-                    VStack(spacing: Spacing.xxl) {
+                    VStack(spacing: Spacing.xl) {
                         CreateFirstDropCard(name: greetingName) { isShowingCreateDrop = true }
-                        HowItWorksSteps()
-                            .padding(.horizontal, Spacing.xs)
+                        Text("Others can invite you to their drops too. Start your own to share memories with friends.")
+                            .font(Typography.font(.sm))
+                            .foregroundStyle(Colors.textTertiary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, Spacing.lg)
                     }
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)

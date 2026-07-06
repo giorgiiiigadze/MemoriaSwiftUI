@@ -17,5 +17,6 @@ enum UserCaches {
         ProfileDropsCache.clear()
         ProfileStatsCache.clear()
         DropDetailCache.clear()
+        ProfileCache.clear()
     }
 }

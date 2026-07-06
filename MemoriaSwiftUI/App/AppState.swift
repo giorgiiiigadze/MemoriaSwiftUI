@@ -63,6 +63,19 @@ final class AppState {
                 await handle(event: event, session: session)
             }
         }
+        startBootWatchdog()
+    }
+
+    /// Safety net for boot: if an expired session is left waiting on a background refresh that never
+    /// completes (e.g. launched offline, so no `.tokenRefreshed`/`.signedOut` ever arrives), we'd sit
+    /// on the splash forever. After a generous grace period, fall back to a usable screen. A real
+    /// refresh that lands later still flips us into `.app` via `hydrate`.
+    private func startBootWatchdog() {
+        Task {
+            try? await Task.sleep(for: .seconds(12))
+            guard phase == .splash else { return }
+            phase = hasSeenOnboarding ? .auth : .onboarding
+        }
     }
 
     /// Stand-in for the real 4-slide onboarding carousel's "done" action (step 4)
@@ -154,7 +167,8 @@ final class AppState {
         let currentID = accounts.activeID ?? session?.user.id
         if let currentID { accounts.remove(id: currentID) }
 
-        if let next = accounts.accounts.first {
+        // Switch to another saved account if one remains — never back to the one we just logged out.
+        if let next = accounts.accounts.first(where: { $0.id != currentID }) {
             await switchAccount(to: next.id)
         } else {
             UserCaches.clear()
@@ -220,7 +234,9 @@ final class AppState {
                 if !isColdBoot {
                     phase = .profileSetup
                 } else {
-                    try? await client.auth.signOut()
+                    // Cold boot on an unfinished account (e.g. a second "Create account" that was
+                    // abandoned): recover to another saved account rather than stranding the user.
+                    recoverFromUnusableSession(currentUserID: session.user.id)
                 }
                 return
             }
@@ -231,29 +247,70 @@ final class AppState {
                 await AvatarImageCache.prefetch(url)
             }
 
-            self.profile = profile
-            hasSeenOnboarding = true
-            phase = .app
-            isAddingAccount = false
-            // Persist this account (with its current tokens) so it's a fast-switch target and its
-            // stored refresh token stays fresh across rotations.
-            accounts.upsert(
-                SavedAccount(
-                    id: session.user.id,
-                    username: profile.username,
-                    displayName: profile.displayName,
-                    avatarURL: profile.avatarURL,
-                    accessToken: session.accessToken,
-                    refreshToken: session.refreshToken
-                ),
-                active: true
-            )
+            enterApp(with: profile, session: session)
         } catch {
-            if !isColdBoot, let postgrestError = error as? PostgrestError, postgrestError.code == "PGRST116" {
-                phase = .profileSetup
+            // A row that genuinely doesn't exist yet: brand-new signup on a live action → setup;
+            // on cold boot it's a broken/half-deleted account → recover.
+            if let postgrestError = error as? PostgrestError, postgrestError.code == "PGRST116" {
+                if !isColdBoot {
+                    phase = .profileSetup
+                } else {
+                    recoverFromUnusableSession(currentUserID: session.user.id)
+                }
                 return
             }
-            try? await client.auth.signOut()
+
+            // Transient connectivity failure: NEVER tear down a valid session just because the
+            // network is unreachable. Fall back to the last cached profile so a returning user
+            // opening offline stays signed in; with no cache, land softly and let a later launch or
+            // the SDK's background refresh retry — the session is left intact either way.
+            if error.isConnectivityError {
+                if let cached = ProfileCache.load(), cached.id == session.user.id {
+                    enterApp(with: cached, session: session)
+                } else {
+                    phase = hasSeenOnboarding ? .auth : .onboarding
+                }
+                return
+            }
+
+            // Any other error is a definitive server/auth rejection (e.g. revoked token) → don't sit
+            // in a broken app; recover to a saved account or sign out cleanly.
+            recoverFromUnusableSession(currentUserID: session.user.id)
+        }
+    }
+
+    /// Enters the app with a loaded (fresh or cached) profile: sets state, caches the profile for
+    /// offline boots, and re-saves this account with its current tokens so it stays a fast-switch
+    /// target and its stored refresh token never goes stale.
+    private func enterApp(with profile: Profile, session: Session) {
+        self.profile = profile
+        ProfileCache.store(profile)
+        hasSeenOnboarding = true
+        phase = .app
+        isAddingAccount = false
+        accounts.upsert(
+            SavedAccount(
+                id: session.user.id,
+                username: profile.username,
+                displayName: profile.displayName,
+                avatarURL: profile.avatarURL,
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken
+            ),
+            active: true
+        )
+    }
+
+    /// A session we can't turn into a usable `.app` state (unfinished/missing/rejected profile). If
+    /// another saved account exists, switch to it so the user isn't dumped on the sign-in screen
+    /// (with the switcher out of reach); otherwise forget this account and sign out cleanly. Excludes
+    /// the current user id so a broken saved account can't loop back into itself.
+    private func recoverFromUnusableSession(currentUserID: UUID?) {
+        if let fallback = accounts.accounts.first(where: { $0.id != currentUserID }) {
+            Task { await switchAccount(to: fallback.id) }
+        } else {
+            if let currentUserID { accounts.remove(id: currentUserID) }
+            Task { try? await client.auth.signOut() }
         }
     }
 }

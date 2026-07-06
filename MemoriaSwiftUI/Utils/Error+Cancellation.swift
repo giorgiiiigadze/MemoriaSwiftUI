@@ -11,4 +11,27 @@ extension Error {
         let nsError = self as NSError
         return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
     }
+
+    /// Whether this looks like a transient connectivity failure (offline, timed out, connection
+    /// lost, host unreachable) rather than a definitive server/auth rejection. Lets boot/hydration
+    /// keep a valid session instead of tearing it down just because the network is unreachable.
+    var isConnectivityError: Bool {
+        let nsError = self as NSError
+        guard nsError.domain == NSURLErrorDomain else { return false }
+        switch nsError.code {
+        case NSURLErrorNotConnectedToInternet,
+             NSURLErrorTimedOut,
+             NSURLErrorNetworkConnectionLost,
+             NSURLErrorCannotConnectToHost,
+             NSURLErrorCannotFindHost,
+             NSURLErrorDNSLookupFailed,
+             NSURLErrorResourceUnavailable,
+             NSURLErrorDataNotAllowed,
+             NSURLErrorInternationalRoamingOff,
+             NSURLErrorSecureConnectionFailed:
+            return true
+        default:
+            return false
+        }
+    }
 }
