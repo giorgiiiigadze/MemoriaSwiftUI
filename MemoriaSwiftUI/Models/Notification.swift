@@ -6,6 +6,7 @@ enum NotificationType: String, Codable, Sendable {
     case dropOpened = "drop_opened"
     case dropOpeningSoon = "drop_opening_soon"
     case dropExpired = "drop_expired"
+    case dropEmptyWarning = "drop_empty_warning"
     case participantUploaded = "participant_uploaded"
     case friendRequest = "friend_request"
     case friendAccepted = "friend_accepted"
@@ -104,6 +105,7 @@ extension NotificationWithMeta {
         case .participantUploaded: "\(actorLabel) uploaded photos to \(dropLabel)"
         case .dropOpeningSoon: "\(dropLabel) opens soon"
         case .dropExpired: "\(dropLabel) has expired"
+        case .dropEmptyWarning: "\(dropLabel) has no photos yet — add one before it opens or it'll be removed"
         }
     }
 
