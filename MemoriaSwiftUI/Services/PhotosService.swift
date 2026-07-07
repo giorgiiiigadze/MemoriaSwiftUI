@@ -34,6 +34,13 @@ final class PhotosService {
             .upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: false))
         let cdnURL = try client.storage.from("photos").getPublicURL(path: path).absoluteString
 
+        // Seed the image cache with the bytes we just uploaded, keyed by the resulting CDN URL, so
+        // the uploader's own photo renders instantly on the drop page instead of flashing a
+        // placeholder while `CachedImage` re-downloads the very bytes that were just on the device.
+        if let url = URL(string: cdnURL) {
+            RemoteImageCache.store(image, data: data, for: url)
+        }
+
         let newPhoto = NewPhoto(
             dropID: dropID,
             uploaderID: uploaderID,
