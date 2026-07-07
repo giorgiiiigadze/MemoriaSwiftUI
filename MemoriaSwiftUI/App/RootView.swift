@@ -142,13 +142,42 @@ private struct AuthFlowContainer: View {
 }
 
 private struct SplashView: View {
+    /// Friendly, on-brand one-liners shown at the bottom of the splash. One is picked at random
+    /// per launch (see `tagline`), so opening the app repeatedly surfaces a rotating cast of them.
+    private static let taglines = [
+        "Where moments become memories.",
+        "Your people. Your moments. One place.",
+        "Good times are better shared.",
+        "Making memories, one drop at a time.",
+        "Collect the moments that matter.",
+        "Every drop is a memory in the making.",
+        "Real life, captured together.",
+        "Some moments deserve to last.",
+        "Gather your people. Save the moment.",
+        "Little moments, big memories.",
+    ]
+
+    /// Chosen once when the view is created. `SplashView` is built fresh on each cold launch, so
+    /// this naturally rotates between app opens while staying stable for the splash's lifetime.
+    @State private var tagline = SplashView.taglines.randomElement() ?? SplashView.taglines[0]
+
     var body: some View {
         ZStack {
-            Colors.white.ignoresSafeArea()
+            Colors.ink.ignoresSafeArea()
 
             Text("Memoria")
                 .font(Typography.font(.xxxl, weight: .strong))
-                .foregroundStyle(Colors.ink)
+                .foregroundStyle(Colors.white)
+
+            VStack {
+                Spacer()
+                Text(tagline)
+                    .font(Typography.font(.sm))
+                    .foregroundStyle(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.xxxl)
+                    .padding(.bottom, Spacing.xxxl)
+            }
         }
     }
 }

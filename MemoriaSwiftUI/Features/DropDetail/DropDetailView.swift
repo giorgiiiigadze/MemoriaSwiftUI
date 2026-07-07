@@ -176,7 +176,7 @@ struct DropDetailView: View {
         } message: {
             Text("Photos are revealed when this drop opens on its scheduled date.")
         }
-        .confirmationDialog("Delete Drop", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
+        .alert("Delete Drop", isPresented: $isConfirmingDelete) {
             Button("Delete", role: .destructive) { deleteDrop() }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -376,7 +376,7 @@ struct DropDetailView: View {
                         if isAccepting {
                             ProgressView().tint(Colors.ink)
                         } else {
-                            Text("Accept Invitation")
+                            Text("Accept to see and add photos.")
                                 .font(Typography.font(.body, weight: .semiBold))
                         }
                     }
@@ -388,26 +388,26 @@ struct DropDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(isAccepting || isDeclining)
 
-                // Decline sits to the right of Accept as its destructive counterpart: a native
-                // Liquid Glass circle (iOS 26) tinted the system red, so the xmark reads red on
-                // clear glass. Same large-glass proportions as the header controls.
+                // Decline sits to the right of Accept as a quiet, neutral alternative — declining
+                // isn't destructive, so it reads in muted grey on clear glass rather than red.
+                // Same large-glass proportions as the header controls.
                 Button {
                     isConfirmingDecline = true
                 } label: {
                     Group {
                         if isDeclining {
-                            ProgressView().tint(Colors.error)
+                            ProgressView().tint(Colors.textSecondary)
                         } else {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .semibold))
+                            Text("Decline")
+                                .font(Typography.font(.body, weight: .semiBold))
                         }
                     }
                 }
                 .glassChromeButton(
-                    .circle,
-                    fallbackShape: Circle(),
-                    fallbackInsets: EdgeInsets(top: 15, leading: 15, bottom: 15, trailing: 15),
-                    tint: Colors.error
+                    .capsule,
+                    fallbackShape: Capsule(),
+                    fallbackInsets: EdgeInsets(top: 15, leading: 22, bottom: 15, trailing: 22),
+                    tint: Colors.textSecondary
                 )
                 .disabled(isAccepting || isDeclining)
             }

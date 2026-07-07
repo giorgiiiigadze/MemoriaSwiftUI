@@ -54,11 +54,7 @@ struct DropCard: View {
         // These presentation modifiers live on the card's root, not on the `Menu`: attached to a
         // `Menu` (inside the recycled feed `LazyVStack`) they silently fail to present, so the
         // Report/Delete actions would toggle their state but nothing would appear.
-        .confirmationDialog(
-            "Delete Drop",
-            isPresented: $isConfirmingDelete,
-            titleVisibility: .visible
-        ) {
+        .alert("Delete Drop", isPresented: $isConfirmingDelete) {
             Button("Delete", role: .destructive, action: onDelete)
             Button("Cancel", role: .cancel) {}
         } message: {
