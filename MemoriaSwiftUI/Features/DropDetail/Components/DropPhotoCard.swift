@@ -9,10 +9,33 @@ struct DropPhotoCard: View {
     let photo: PhotoWithUploader
     /// Blur the photo out (someone else's contribution before the drop opens).
     var blurred: Bool = false
+    /// Act 1 of the reveal: frost this tile as part of the uniform "curtain" over the whole grid,
+    /// regardless of whose photo it is.
+    var revealCurtain: Bool = false
+    /// Act 2 of the reveal: this tile starts blurred (even though the drop is open) and animates
+    /// clear after its stagger delay.
+    var revealing: Bool = false
+    /// Stagger offset so tiles cascade rather than clearing all at once.
+    var revealDelay: Double = 0
+    /// Firmness of this tile's reveal tap (0...1). The parent ramps it up across the grid so the
+    /// haptic cascade builds tension rather than staying flat.
+    var revealIntensity: Double = 0.7
     /// Whether the viewer may pin this photo (its uploader, or the drop's creator).
     var canPin: Bool = false
     var onTogglePin: () -> Void = {}
     var onTap: () -> Void = {}
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Flips true when this tile's reveal animation runs, dissolving its blur.
+    @State private var revealed = false
+
+    private let blurRadius: CGFloat = 22
+    private let revealScaleFrom: CGFloat = 1.03
+    private let revealDuration: Double = 1.1
+    private let reduceMotionDuration: Double = 0.3
+
+    /// Blur while locked, while the curtain is up, or while a pending reveal hasn't dissolved yet.
+    private var showBlur: Bool { blurred || revealCurtain || (revealing && !revealed) }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -58,6 +81,26 @@ struct DropPhotoCard: View {
                 }
             }
         }
+        // Kick off the reveal when the tile appears already in reveal mode (drop open on entry),
+        // and when it flips into reveal mode live (the drop opens while the user is watching).
+        .onAppear { scheduleRevealIfNeeded() }
+        .onChange(of: revealing) { _, _ in scheduleRevealIfNeeded() }
+        // A sharp tap as this tile clears; ramped in firmness across the staggered grid so the
+        // cascade tightens into mounting tension rather than a flat patter.
+        .sensoryFeedback(.impact(flexibility: .rigid, intensity: revealIntensity), trigger: revealed)
+    }
+
+    /// Starts this tile's un-blur (after its stagger delay), unless there's nothing to reveal.
+    /// Under Reduce Motion it skips the delay and just cross-blurs quickly.
+    private func scheduleRevealIfNeeded() {
+        guard revealing, !blurred, !revealed else { return }
+        if reduceMotion {
+            withAnimation(.easeInOut(duration: reduceMotionDuration)) { revealed = true }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + revealDelay) {
+                withAnimation(.easeInOut(duration: revealDuration)) { revealed = true }
+            }
+        }
     }
 
     private var thumbnail: some View {
@@ -68,7 +111,11 @@ struct DropPhotoCard: View {
             } placeholder: {
                 Colors.surfaceRaised
             }
-            .blur(radius: blurred ? 22 : 0)
+            .blur(radius: showBlur ? blurRadius : 0)
+            // A subtle bloom only during the reveal: the photo eases down from a hair oversized and
+            // slightly dim as it sharpens, so it "breathes" open rather than snapping.
+            .scaleEffect(showBlur && revealing ? revealScaleFrom : 1)
+            .brightness(showBlur && revealing ? -0.05 : 0)
         }
     }
 

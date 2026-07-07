@@ -13,6 +13,7 @@ struct DropDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let dropsService = DropsService()
     private let photosService = PhotosService()
@@ -34,6 +35,32 @@ struct DropDetailView: View {
     @State private var isConfirmingLeave = false
     @State private var isInvitingFriends = false
     @State private var errorMessage: String?
+
+    // The one-time "reveal" moment (first open after the drop opens), staged in two acts:
+    //   1. curtain  — the whole grid frosted, a line held over it to build anticipation;
+    //   2. revealing — the line clears and the photos melt in, tile-by-tile.
+    private enum RevealPhase { case idle, curtain, revealing }
+    @State private var revealPhase: RevealPhase = .idle
+    @State private var didEvaluateReveal = false
+    /// Visibility of the curtain UI (dim scrim + line); toggled with a fade between the acts.
+    @State private var showCurtainUI = false
+    /// One-shot toggles that fire the arc's bookend haptics: the sharp hit as the curtain lands,
+    /// and the resolving success once the whole cascade has landed.
+    @State private var startPulse = false
+    @State private var revealClimaxed = false
+
+    /// The pause before the first tile clears, then the per-tile stagger — a held breath, then
+    /// a cascade. Named (not inline) per the project's no-magic-numbers rule.
+    private let revealHoldBeat: Double = 0.35
+    private let revealStagger: Double = 0.12
+    /// Mirrors `DropPhotoCard.revealDuration` — used only to time the climax haptic to the end of
+    /// the cascade.
+    private let revealUnblurApprox: Double = 1.1
+    /// Act 1 timings: how long the line holds over the frosted grid, the cross-fade between acts,
+    /// and the clean beat after the line is gone before the photos start clearing.
+    private let curtainHold: Double = 1.3
+    private let curtainFade: Double = 0.45
+    private let actGap: Double = 0.2
 
     init(dropID: UUID, cachedDrop: DropWithParticipants? = nil) {
         self.dropID = dropID
@@ -81,6 +108,14 @@ struct DropDetailView: View {
 
     /// The photos the viewer may actually see full-screen — all when open, just your own while locked.
     private var viewablePhotos: [PhotoWithUploader] { photos.filter { !isBlurred($0) } }
+
+    /// True when the grid holds at least one photo that *was* blurred for this viewer (someone
+    /// else's contribution) — i.e. there's actually something to reveal. A drop of only your own
+    /// photos was never hidden, so it gets no reveal.
+    private var hasRevealablePhotos: Bool {
+        guard let userID else { return false }
+        return photos.contains { $0.uploaderId != userID }
+    }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.xxs), count: 3)
 
@@ -160,7 +195,14 @@ struct DropDetailView: View {
             }
         }
         .tint(Colors.textPrimary)
-        .task { await load() }
+        // Decide from cached state first (so a drop that's already open on entry starts the reveal
+        // without a network wait), then let the fresh `load()` re-check for the live-open path.
+        .task { evaluateReveal(); await load() }
+        // Tension arc: a sharp hit as the curtain lands, the cards' rising taps through the
+        // cascade, then a resolving success "release" once every photo has landed.
+        .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.75), trigger: startPulse)
+        .sensoryFeedback(.success, trigger: revealClimaxed)
+        .overlay { if showCurtainUI { revealCurtainOverlay } }
         // Live drop: refetch when another participant uploads a photo, the drop opens/changes, or
         // someone accepts their invite — so the grid and header stay current without reopening.
         .task(id: dropID) { await observeLive() }
@@ -262,10 +304,16 @@ struct DropDetailView: View {
             emptyState
         } else {
             LazyVGrid(columns: columns, spacing: Spacing.xxs) {
-                ForEach(photos) { photo in
+                ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                     DropPhotoCard(
                         photo: photo,
                         blurred: isBlurred(photo),
+                        // Act 1 frosts the whole grid (even your own photos) so the curtain is
+                        // uniform; act 2 melts every tile back in, cascading top-left → bottom-right.
+                        revealCurtain: revealPhase == .curtain,
+                        revealing: revealPhase == .revealing,
+                        revealDelay: revealHoldBeat + Double(index) * revealStagger,
+                        revealIntensity: revealTapIntensity(index: index, total: photos.count),
                         canPin: canPin(photo),
                         onTogglePin: { togglePin(photo) },
                         onTap: { selectPhoto(photo) }
@@ -274,6 +322,38 @@ struct DropDetailView: View {
             }
             .padding(.horizontal, Spacing.sm)
         }
+    }
+
+    /// How many distinct people contributed to this drop — drives the personalized reveal line.
+    private var contributorCount: Int { Set(photos.map(\.uploaderId)).count }
+
+    /// The reveal line is personalized and kept casual (no dashes or full stops) so it reads like
+    /// a friend talking, not a system message.
+    private var revealHeadline: String {
+        contributorCount >= 2 ? "\(contributorCount) friends" : "your moment"
+    }
+    private var revealSubline: String {
+        contributorCount >= 2 ? "one moment" : "is finally here"
+    }
+
+    /// Act 1: a dim scrim over the frosted grid carrying the personalized line. The scrim deepens
+    /// legibility and focus; tapping anywhere skips straight to the photos.
+    private var revealCurtainOverlay: some View {
+        ZStack {
+            Colors.ink.opacity(0.35).ignoresSafeArea()
+            // One evenly-weighted block (both lines same size/weight/color) so it reads as a single
+            // statement, not a headline + subtitle.
+            Text("\(revealHeadline)\n\(revealSubline)")
+                .font(Typography.font(.xxxl, weight: .strong))
+                .foregroundStyle(Colors.white)
+                .multilineTextAlignment(.center)
+                .lineSpacing(Spacing.xxs)
+                .shadow(color: .black.opacity(0.5), radius: 8, y: 2)
+                .padding(.horizontal, Spacing.xl)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { skipCurtain() }
+        .transition(.opacity)
     }
 
     private var skeleton: some View {
@@ -443,6 +523,68 @@ struct DropDetailView: View {
             DropDetailCache.storePhotos(fetched, for: dropID)
         }
         photosLoaded = true
+        // Runs synchronously right after the state above, so SwiftUI coalesces it into one update:
+        // the tiles never render clear before flipping into the reveal (no blur-back flash).
+        evaluateReveal()
+    }
+
+    /// Decides — at most once per view lifetime — whether to play the reveal, and kicks it off.
+    /// Fires whether the drop was already open on entry or opens live while the user is watching
+    /// (both funnel through `load()`), and only the first time for this member (persisted in
+    /// `DropRevealStore`). Marks it seen up front so it can never replay mid-animation.
+    private func evaluateReveal() {
+        guard !didEvaluateReveal, photosLoaded, isOpen, let userID else { return }
+        didEvaluateReveal = true
+        guard hasRevealablePhotos, !DropRevealStore.hasRevealed(dropID: dropID, userID: userID) else { return }
+        DropRevealStore.markRevealed(dropID: dropID, userID: userID)
+
+        startPulse.toggle() // the sharp hit that opens the arc
+
+        // Reduce Motion skips the theatrical curtain — go straight to a quick, gentle un-blur.
+        guard !reduceMotion else {
+            revealPhase = .revealing
+            scheduleClimax(after: revealHoldBeat)
+            return
+        }
+
+        // Act 1: frost the whole grid and fade the line in over it.
+        revealPhase = .curtain
+        withAnimation(.easeIn(duration: curtainFade)) { showCurtainUI = true }
+        Task {
+            try? await Task.sleep(for: .seconds(curtainHold))
+            beginReveal()
+        }
+    }
+
+    /// Transitions from the held curtain into the photo reveal: fade the line out, a clean beat,
+    /// then melt the tiles in and schedule the release haptic. Guarded so a tap-to-skip that
+    /// already started the reveal can't run it twice.
+    private func beginReveal() {
+        guard revealPhase == .curtain else { return }
+        withAnimation(.easeOut(duration: curtainFade)) { showCurtainUI = false }
+        Task {
+            try? await Task.sleep(for: .seconds(curtainFade + actGap))
+            revealPhase = .revealing
+            scheduleClimax(after: revealHoldBeat + Double(max(photos.count - 1, 0)) * revealStagger + revealUnblurApprox)
+        }
+    }
+
+    /// Tap-to-skip: jump past the held line straight into the photo reveal.
+    private func skipCurtain() { beginReveal() }
+
+    /// Fires the resolving success haptic once the whole cascade has landed.
+    private func scheduleClimax(after delay: Double) {
+        Task {
+            try? await Task.sleep(for: .seconds(delay))
+            revealClimaxed = true
+        }
+    }
+
+    /// Ramps each tile's reveal tap firmer as the cascade progresses (0.5 → 1.0), so the haptics
+    /// tighten into mounting tension instead of staying flat.
+    private func revealTapIntensity(index: Int, total: Int) -> Double {
+        guard total > 1 else { return 0.9 }
+        return 0.5 + (Double(index) / Double(total - 1)) * 0.5
     }
 
     /// Subscribes to this drop's photos, its own row, and its participant rows; any change refetches
