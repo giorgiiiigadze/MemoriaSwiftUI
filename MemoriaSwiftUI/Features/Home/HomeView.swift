@@ -1,5 +1,6 @@
 import SwiftUI
 import Supabase
+import UIKit
 
 /// The Home tab (step 5 — drop feed): a vertically scrolling list of every drop rendered as a
 /// native `DropCard`. Native navigation header with the leading Liquid Glass bell/share pill and
@@ -22,9 +23,12 @@ struct HomeView: View {
     @State private var isSearchPresented = false
     /// Presents the Create Drop flow from the empty-state button.
     @State private var isShowingCreateDrop = false
+    /// The drop whose "add yours" prompt was tapped — drives the camera cover for a feed-level upload.
+    @State private var uploadTarget: DropWithParticipants?
 
     private let service = DropsService()
     private let notificationsService = NotificationsService()
+    private let photosService = PhotosService()
 
     /// Vertical gap between drop cards in the feed.
     private let feedSpacing: CGFloat = 35
@@ -159,6 +163,23 @@ struct HomeView: View {
                 Task { await load() }
             }
         }
+        // Feed-level upload: tapping "Upload" on a still-collecting card opens the shared camera and
+        // adds the photo straight to that drop, reusing the same PhotosService path as the detail page.
+        .fullScreenCover(item: $uploadTarget) { drop in
+            CameraView { image in await performUpload(image, to: drop) }
+                .ignoresSafeArea()
+        }
+    }
+
+    /// Uploads a photo captured from the feed prompt to `drop`, then refreshes so the prompt clears.
+    private func performUpload(_ image: UIImage, to drop: DropWithParticipants) async {
+        guard let userID = currentUserID else { return }
+        do {
+            try await photosService.uploadPhoto(dropID: drop.id, uploaderID: userID, image: image)
+            await load()
+        } catch {
+            if !error.isCancellation { errorMessage = error.localizedDescription }
+        }
     }
 
     @ViewBuilder
@@ -197,7 +218,8 @@ struct HomeView: View {
                                 drop: drop,
                                 currentUserID: currentUserID,
                                 onDelete: { delete(drop) },
-                                onTogglePin: { togglePin(drop) }
+                                onTogglePin: { togglePin(drop) },
+                                onUpload: { uploadTarget = drop }
                             )
                             .onAppear { DropPrefetcher.shared.prefetch(drop) }
                         }

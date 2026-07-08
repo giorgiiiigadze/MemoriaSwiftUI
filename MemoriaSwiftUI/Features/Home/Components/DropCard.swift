@@ -15,6 +15,9 @@ struct DropCard: View {
     var onDelete: () -> Void = {}
     /// Invoked when the creator toggles the pin. The parent updates the feed + persists.
     var onTogglePin: () -> Void = {}
+    /// Invoked when the viewer taps "Upload" on the still-collecting prompt. The parent owns the
+    /// camera + upload so the flow is shared with the drop detail page.
+    var onUpload: () -> Void = {}
 
     @State private var isConfirmingDelete = false
     @State private var isShowingReportNotice = false
@@ -37,6 +40,18 @@ struct DropCard: View {
     private var isCreator: Bool { currentUserID != nil && currentUserID == drop.creator?.id }
     private var dateLabel: String? { DropTime.label(state: drop.state, date: drop.openDate) }
 
+    /// The viewer's participant row on this drop, if they're on it.
+    private var myParticipation: DropWithParticipants.Participant? {
+        drop.participants.first { $0.userId == currentUserID }
+    }
+    /// Show the "add yours" prompt while the drop is still collecting (active/ready) to an accepted
+    /// member who hasn't uploaded yet — the BeReal-style nudge to contribute before it opens.
+    private var showUploadPrompt: Bool {
+        guard drop.state == .active || drop.state == .ready else { return false }
+        guard let me = myParticipation else { return false }
+        return me.status == .accepted && !me.hasUploaded
+    }
+
     private var shareText: String {
         "Check out \"\(drop.title)\" on Memoria\nhttps://memoria.app/drop/\(drop.id.uuidString.lowercased())"
     }
@@ -50,6 +65,10 @@ struct DropCard: View {
                 photo
             }
             .buttonStyle(.plain)
+            // Layered outside the NavigationLink label (a button inside a link's label misbehaves):
+            // the scrim + text stay non-interactive so tapping the card still opens the drop, while
+            // the pill intercepts its own taps to launch the upload.
+            .overlay { if showUploadPrompt { uploadPromptOverlay } }
         }
         // These presentation modifiers live on the card's root, not on the `Menu`: attached to a
         // `Menu` (inside the recycled feed `LazyVStack`) they silently fail to present, so the
@@ -129,6 +148,35 @@ struct DropCard: View {
                 .frame(width: menuHitTarget, height: menuHitTarget)
                 .contentShape(Rectangle())
         }
+    }
+
+    /// BeReal-style prompt over a still-collecting drop's cover: an eye-slash glyph, a short nudge,
+    /// and the shared white pill to upload. Only the pill takes taps — the scrim and text stay
+    /// non-interactive so tapping elsewhere still opens the drop.
+    private var uploadPromptOverlay: some View {
+        ZStack {
+            Colors.ink.opacity(0.55)
+                .allowsHitTesting(false)
+            VStack(spacing: Spacing.xs) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Colors.white)
+                    .allowsHitTesting(false)
+                Text("You haven't added a photo")
+                    .font(Typography.font(.md, weight: .semiBold))
+                    .foregroundStyle(Colors.white)
+                    .allowsHitTesting(false)
+                Text("Drop yours before this one opens")
+                    .font(Typography.font(.sm))
+                    .foregroundStyle(Colors.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+                    .allowsHitTesting(false)
+                CompactPillButton(title: "Upload", systemImage: "camera.fill") { onUpload() }
+                    .padding(.top, Spacing.xs)
+            }
+            .padding(Spacing.lg)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
     }
 
     // MARK: Photo
