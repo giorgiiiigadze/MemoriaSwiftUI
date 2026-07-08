@@ -31,10 +31,10 @@ struct FriendChip: View {
 
     private var pill: some View {
         Text(label)
-            .font(Typography.font(.xs, weight: .semiBold))
+            .font(Typography.font(.sm, weight: .semiBold))
             .foregroundStyle(isPlaceholder ? .clear : foreground)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.xs)
             .background {
                 if isPlaceholder {
                     SkeletonBlock(cornerRadius: Radii.full)
@@ -48,7 +48,7 @@ struct FriendChip: View {
     private var background: Color {
         switch variant {
         case .white: Colors.white
-        case .green: Color.green
+        case .green: Colors.success
         case .muted: Colors.surfaceRaised
         case .card: Colors.surfaceCard
         }

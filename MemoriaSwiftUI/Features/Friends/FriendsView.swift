@@ -122,7 +122,7 @@ struct FriendsView: View {
         } else if connections.outgoing.contains(where: { $0.profile.id == profile.id }) {
             FriendChip(label: "Pending", variant: .card)
         } else if let request = connections.incoming.first(where: { $0.profile.id == profile.id }) {
-            FriendChip(label: "Accept", variant: .green, action: { accept(request) }, disabled: actionInProgress)
+            FriendChip(label: "Accept", variant: .white, action: { accept(request) }, disabled: actionInProgress)
         } else {
             FriendChip(label: "Add", variant: .white, action: { add(profile) }, disabled: actionInProgress)
         }
@@ -184,8 +184,8 @@ struct FriendsView: View {
                 sectionLabel("Requests")
                 ForEach(connections.incoming) { request in
                     FriendRow(profile: request.profile) {
-                        HStack(spacing: Spacing.xs) {
-                            FriendChip(label: "Accept", variant: .green,
+                        HStack(spacing: Spacing.xxs) {
+                            FriendChip(label: "Accept", variant: .white,
                                        action: { accept(request) }, disabled: actionInProgress)
                             FriendChip(label: "Decline", variant: .muted,
                                        action: { decline(request) }, disabled: actionInProgress)
