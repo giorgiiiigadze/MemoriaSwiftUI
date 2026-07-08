@@ -18,6 +18,8 @@ struct NotificationsView: View {
     @State private var isLoaded: Bool
     /// Drop to open when a drop-related notification is tapped.
     @State private var navigatedDropID: UUID?
+    /// Pushes the dedicated Friend requests list from the summary row.
+    @State private var showingFriendRequests = false
 
     private let service = NotificationsService()
 
@@ -32,14 +34,23 @@ struct NotificationsView: View {
 
     private var currentUserID: UUID? { appState.session?.user.id }
 
+    /// Friend requests are lifted out of the main list into their own summary row + sub-screen.
+    private var friendRequests: [NotificationWithMeta] {
+        notifications.filter { $0.type == .friendRequest }
+    }
+    /// The most recent request drives the summary row's avatar + subtitle (newest-first order).
+    private var latestFriendRequest: NotificationWithMeta? { friendRequests.first }
+    private var hasUnreadFriendRequests: Bool { friendRequests.contains { !$0.read } }
+
     /// Today first, then the past week, then everything older — only non-empty sections are kept.
-    /// A single pass keeps the incoming newest-first order within each bucket.
+    /// A single pass keeps the incoming newest-first order within each bucket. Friend requests are
+    /// excluded here; they live in the pinned summary row above these sections.
     private var sections: [(title: String, items: [NotificationWithMeta])] {
         let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
         var today: [NotificationWithMeta] = []
         var lastWeek: [NotificationWithMeta] = []
         var earlier: [NotificationWithMeta] = []
-        for notification in notifications {
+        for notification in notifications where notification.type != .friendRequest {
             if notification.isToday {
                 today.append(notification)
             } else if notification.createdAt >= weekAgo {
@@ -65,6 +76,17 @@ struct NotificationsView: View {
                 emptyState
             } else {
                 List {
+                    if !friendRequests.isEmpty {
+                        Section {
+                            friendRequestsSummaryRow
+                                .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.md,
+                                                          bottom: Spacing.xs, trailing: Spacing.md))
+                                .listRowBackground(Colors.background)
+                                .listRowSeparator(.hidden)
+                                .contentShape(.rect)
+                                .onTapGesture { showingFriendRequests = true }
+                        }
+                    }
                     ForEach(sections, id: \.title) { section in
                         Section {
                             ForEach(section.items) { notification in
@@ -100,6 +122,14 @@ struct NotificationsView: View {
         .navigationDestination(item: $navigatedDropID) { dropID in
             DropDetailView(dropID: dropID)
         }
+        .navigationDestination(isPresented: $showingFriendRequests) {
+            FriendRequestsList(
+                requests: friendRequests,
+                currentUserID: currentUserID,
+                myProfile: appState.profile,
+                onTap: tap
+            )
+        }
         .task { await load() }
     }
 
@@ -122,6 +152,39 @@ struct NotificationsView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, Spacing.xxxxl)
         .padding(.bottom, Spacing.xxxl)
+    }
+
+    /// The pinned row at the top of the list: the latest requester's avatar, a "Friend requests"
+    /// title over the most recent request, an unread dot, and a chevron into the dedicated screen.
+    private var friendRequestsSummaryRow: some View {
+        HStack(spacing: Spacing.md) {
+            AvatarView(
+                url: latestFriendRequest?.actor?.avatarURL,
+                name: latestFriendRequest?.actor?.name ?? "?",
+                size: 58
+            )
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Friend requests")
+                    .font(Typography.font(.body, weight: .semiBold))
+                    .foregroundStyle(Colors.white)
+                if let latest = latestFriendRequest {
+                    Text(latest.text)
+                        .font(Typography.font(.body))
+                        .foregroundStyle(Colors.white)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if hasUnreadFriendRequests {
+                Circle()
+                    .fill(Colors.error)
+                    .frame(width: 8, height: 8)
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Colors.textTertiary)
+        }
     }
 
     private func load() async {
@@ -157,6 +220,43 @@ struct NotificationsView: View {
     }
 }
 
+/// The dedicated Friend requests screen, pushed from the summary row: the same notification rows
+/// as the main list, filtered to friend requests. Tapping one runs the parent's `tap` handler
+/// (marks read, then jumps to the Friends tab).
+private struct FriendRequestsList: View {
+    let requests: [NotificationWithMeta]
+    let currentUserID: UUID?
+    let myProfile: Profile?
+    var onTap: (NotificationWithMeta) -> Void
+
+    var body: some View {
+        ZStack {
+            Colors.background.ignoresSafeArea()
+            List {
+                ForEach(requests) { notification in
+                    NotificationRow(
+                        notification: notification,
+                        currentUserID: currentUserID,
+                        myProfile: myProfile
+                    )
+                    .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.md,
+                                              bottom: Spacing.xs, trailing: Spacing.md))
+                    .listRowBackground(notification.read ? Colors.background : Colors.surface)
+                    .listRowSeparator(.hidden)
+                    .contentShape(.rect)
+                    .onTapGesture { onTap(notification) }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Colors.background)
+        }
+        .navigationTitle("Friend requests")
+        .navigationBarTitleDisplayMode(.inline)
+        .hidesTabBarWhenPushed()
+    }
+}
+
 /// A single notification line: avatar (stacked dual avatar for a drop from someone else) + activity
 /// text + relative time, with the drop's thumbnail trailing when present, and an unread dot badge.
 private struct NotificationRow: View {
@@ -164,8 +264,8 @@ private struct NotificationRow: View {
     let currentUserID: UUID?
     let myProfile: Profile?
 
-    private let avatarSize: CGFloat = 50
-    private let dualSize: CGFloat = 37
+    private let avatarSize: CGFloat = 58
+    private let dualSize: CGFloat = 43
     private let thumbnailSize: CGFloat = 44
 
     /// A drop notification whose creator is someone other than the current user gets the stacked
@@ -291,7 +391,7 @@ private struct RemoteThumbnail: View {
 /// A shimmering placeholder shown during the first load, mirroring the row layout (avatar, two
 /// text lines, thumbnail) under a section header so the screen has shape before the data arrives.
 private struct NotificationsSkeleton: View {
-    private let avatarSize: CGFloat = 50
+    private let avatarSize: CGFloat = 58
     private let thumbnailSize: CGFloat = 44
 
     var body: some View {
