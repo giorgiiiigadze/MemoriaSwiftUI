@@ -22,6 +22,7 @@ struct NameStepView: View {
 
             TextField("", text: $store.name, prompt: Text("Your name").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .textInputAutocapitalization(.words)
                 .focused($isFocused)

@@ -30,6 +30,7 @@ struct SignUpPasswordStepView: View {
 
             SecureField("", text: $password, prompt: Text("Password").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .textContentType(.newPassword)
                 .focused($isFocused)

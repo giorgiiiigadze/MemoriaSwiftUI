@@ -69,12 +69,12 @@ struct AccountSwitcherSheet: View {
 
     /// Signs into an account that already exists (opens the log-in flow).
     private var addAccountRow: some View {
-        accountActionRow(icon: "plus.circle.fill", title: "Add account", mode: .signIn)
+        accountActionRow(icon: "plus", title: "Add account", mode: .signIn)
     }
 
     /// Creates a brand-new account (opens the sign-up flow), keeping the current one saved.
     private var createAccountRow: some View {
-        accountActionRow(icon: "person.crop.circle.badge.plus", title: "Create account", mode: .signUp)
+        accountActionRow(icon: "person.fill.badge.plus", title: "Create account", mode: .signUp)
     }
 
     private func accountActionRow(icon: String, title: String, mode: AddAccountMode) -> some View {

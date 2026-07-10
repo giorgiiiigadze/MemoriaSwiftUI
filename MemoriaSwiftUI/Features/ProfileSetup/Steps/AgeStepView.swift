@@ -24,6 +24,7 @@ struct AgeStepView: View {
 
             TextField("", text: $text, prompt: Text("Age").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .keyboardType(.numberPad)
                 .focused($isFocused)

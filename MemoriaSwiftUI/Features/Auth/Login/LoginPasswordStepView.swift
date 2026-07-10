@@ -25,6 +25,7 @@ struct LoginPasswordStepView: View {
 
             SecureField("", text: $password, prompt: Text("Password").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .textContentType(.password)
                 .focused($isFocused)

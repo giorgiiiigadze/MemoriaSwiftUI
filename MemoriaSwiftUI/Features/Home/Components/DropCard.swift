@@ -150,18 +150,14 @@ struct DropCard: View {
         }
     }
 
-    /// BeReal-style prompt over a still-collecting drop's cover: an eye-slash glyph, a short nudge,
-    /// and the shared white pill to upload. Only the pill takes taps — the scrim and text stay
-    /// non-interactive so tapping elsewhere still opens the drop.
+    /// BeReal-style prompt over a still-collecting drop's cover: a short nudge and the shared white
+    /// pill to upload. Only the pill takes taps — the scrim and text stay non-interactive so tapping
+    /// elsewhere still opens the drop.
     private var uploadPromptOverlay: some View {
         ZStack {
             Colors.ink.opacity(0.55)
                 .allowsHitTesting(false)
             VStack(spacing: Spacing.xs) {
-                Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Colors.white)
-                    .allowsHitTesting(false)
                 Text("You haven't added a photo")
                     .font(Typography.font(.md, weight: .semiBold))
                     .foregroundStyle(Colors.white)

@@ -6,8 +6,8 @@ import SwiftUI
 struct ParticipantAvatars: View {
     let participants: [DropWithParticipants.Participant]
 
-    private let avatarSize: CGFloat = 30
-    private let overlap: CGFloat = 10
+    private let avatarSize: CGFloat = 34
+    private let overlap: CGFloat = 12
     private let maxVisible = 5
     private let ringWidth: CGFloat = 1
     /// Strength of the dark scrim laid over an absent/pending member's avatar. A scrim (rather than

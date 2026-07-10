@@ -22,6 +22,7 @@ struct LoginEmailStepView: View {
 
             TextField("", text: $email, prompt: Text("Email").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)

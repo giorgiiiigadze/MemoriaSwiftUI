@@ -183,6 +183,7 @@ struct CreateDropView: View {
 
             TextField("", text: $title, prompt: Text("Drop name").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .textInputAutocapitalization(.words)
                 .focused($nameFocused)

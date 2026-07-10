@@ -396,6 +396,9 @@ private struct NotificationsSkeleton: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Pinned "Friend requests" summary row placeholder (avatar + two lines + chevron).
+            summaryRow
+
             // Section-header placeholder ("Today").
             SkeletonBlock(cornerRadius: Radii.sm)
                 .frame(width: 60, height: 14)
@@ -409,6 +412,27 @@ private struct NotificationsSkeleton: View {
         .padding(.horizontal, Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .allowsHitTesting(false)
+    }
+
+    /// Matches the friend-requests summary row: avatar, two text lines, and a trailing chevron
+    /// stub (no thumbnail).
+    private var summaryRow: some View {
+        HStack(spacing: Spacing.md) {
+            SkeletonBlock(cornerRadius: avatarSize / 2)
+                .frame(width: avatarSize, height: avatarSize)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                SkeletonBlock(cornerRadius: Radii.sm)
+                    .frame(width: 130, height: 14)
+                SkeletonBlock(cornerRadius: Radii.sm)
+                    .frame(height: 12)
+                    .frame(maxWidth: .infinity)
+            }
+
+            SkeletonBlock(cornerRadius: Radii.sm)
+                .frame(width: 8, height: 14)
+        }
+        .padding(.vertical, Spacing.sm)
     }
 
     private var row: some View {

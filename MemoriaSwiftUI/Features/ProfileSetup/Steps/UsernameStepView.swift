@@ -38,6 +38,7 @@ struct UsernameStepView: View {
 
             TextField("", text: $store.username, prompt: Text("username").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .focused($isFocused)
                 .textInputAutocapitalization(.never)

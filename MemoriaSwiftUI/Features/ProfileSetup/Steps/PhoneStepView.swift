@@ -28,6 +28,7 @@ struct PhoneStepView: View {
 
             TextField("", text: $text, prompt: Text("Phone number").foregroundStyle(Colors.textPlaceholder))
                 .inputFieldStyle()
+                .tint(Colors.white)
                 .padding(.top, Spacing.lg)
                 .keyboardType(.phonePad)
                 .focused($isFocused)

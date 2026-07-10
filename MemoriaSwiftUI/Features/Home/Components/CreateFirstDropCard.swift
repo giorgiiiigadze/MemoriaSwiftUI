@@ -52,11 +52,11 @@ struct CreateFirstDropCard: View {
         VStack(spacing: Spacing.xl) {
             VStack(spacing: Spacing.sm) {
                 Text("Hey \(name)")
-                    .font(Typography.font(.xxxl, weight: .bold))
+                    .font(Typography.font(.xxxxl, weight: .bold))
                     .foregroundStyle(Colors.white)
                     .multilineTextAlignment(.center)
                 Text("It's time to create your first drop\nand start sharing memories with friends")
-                    .font(Typography.font(.md))
+                    .font(Typography.font(.lg))
                     .foregroundStyle(Colors.white)
                     .multilineTextAlignment(.center)
             }
