@@ -166,7 +166,7 @@ struct DropDetailView: View {
                     Button {
                         isShowingQR = true
                     } label: {
-                        Image(systemName: "qrcode")
+                        Image(systemName: "qrcode.viewfinder")
                     }
                 }
                 Menu {

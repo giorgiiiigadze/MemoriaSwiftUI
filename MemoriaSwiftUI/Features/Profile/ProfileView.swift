@@ -77,8 +77,9 @@ struct ProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Tappable username → account switcher (Instagram-style). The chevron signals it
-                // opens something.
-                ToolbarItem(placement: .principal) {
+                // opens something. Sits in the leading slot so iOS 26 renders it as a Liquid Glass
+                // pill (like the trailing gear), rather than as plain centered title text.
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
                         isShowingAccountSwitcher = true
                     } label: {

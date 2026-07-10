@@ -163,6 +163,23 @@ final class DropsService {
             .execute()
     }
 
+    /// Drops the current user and `other` are both active members of. We read `other`'s participant
+    /// rows, but the `drop_participants` RLS only returns rows for drops the *caller* is also a member
+    /// of — so the result is exactly the drops the two share. Declined/left memberships on either side
+    /// are excluded (the caller's by RLS, the other user's by the status filter here).
+    func sharedDrops(withUserID other: UUID) async throws -> [CalendarDrop] {
+        let rows: [SharedDropRow] = try await client
+            .from("drop_participants")
+            .select("status, drop:drops!drop_id(id, creator_id, title, thumbnail_url, created_at, is_pinned, creator:profiles!creator_id(username, display_name))")
+            .eq("user_id", value: other)
+            .execute()
+            .value
+        return rows.compactMap { row in
+            guard row.status != .declined, row.status != .removed else { return nil }
+            return row.drop
+        }
+    }
+
     /// Decline a pending invitation. Flips the participant row to `declined` (rather than deleting
     /// it) so the invite doesn't simply reappear on the next sync and the creator can still see the
     /// person passed. RLS then drops the user's access to the drop's photos.
@@ -237,4 +254,10 @@ final class DropsService {
 
     /// The `id` returned from the drop insert.
     private struct InsertedDrop: Decodable { let id: UUID }
+
+    /// Decoding shape for `sharedDrops` — a participant row with the full `CalendarDrop` embedded.
+    private struct SharedDropRow: Decodable {
+        let status: ParticipantStatus
+        let drop: CalendarDrop?
+    }
 }

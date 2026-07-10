@@ -52,6 +52,22 @@ final class FriendsService {
         return result
     }
 
+    /// The friendship row between two users (either direction), or nil if there's none. Backs the
+    /// user profile card, which shows the right action (Add / Requested / Accept / Friends) for the
+    /// current relationship. RLS already scopes `friendships` to rows the caller is part of.
+    func friendship(between me: UUID, and other: UUID) async throws -> Friendship? {
+        let a = me.uuidString.lowercased()
+        let b = other.uuidString.lowercased()
+        let rows: [Friendship] = try await client
+            .from("friendships")
+            .select()
+            .or("and(requester_id.eq.\(a),addressee_id.eq.\(b)),and(requester_id.eq.\(b),addressee_id.eq.\(a))")
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
+    }
+
     /// Number of accepted friendships the user is part of — the Profile stat. Head/count request,
     /// so no rows are returned.
     func friendCount(userID: UUID) async throws -> Int {

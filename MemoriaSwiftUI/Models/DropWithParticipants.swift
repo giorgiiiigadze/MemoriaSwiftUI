@@ -21,7 +21,7 @@ struct DropWithParticipants: Codable, Identifiable, Hashable, Sendable {
     var pinned: Bool { isPinned ?? false }
 
     /// A trimmed `profiles` row — just what an avatar + name label needs.
-    struct ProfileRef: Codable, Hashable, Sendable {
+    struct ProfileRef: Codable, Hashable, Sendable, Identifiable {
         let id: UUID
         let username: String
         let displayName: String?

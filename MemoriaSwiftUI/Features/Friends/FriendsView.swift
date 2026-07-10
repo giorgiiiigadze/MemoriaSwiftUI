@@ -22,6 +22,8 @@ struct FriendsView: View {
     @State private var actionInProgress = false
     /// The friend pending an unfriend confirmation; non-nil drives the confirmation alert.
     @State private var friendToUnfriend: Friend?
+    /// The person whose profile card is open; non-nil presents the `UserProfileSheet`.
+    @State private var selectedProfile: DropWithParticipants.ProfileRef?
 
     private let service = FriendsService()
     private let contactsService = ContactsMatchingService()
@@ -95,6 +97,9 @@ struct FriendsView: View {
         } message: { friend in
             Text("You'll no longer be friends with \(friend.profile.name).")
         }
+        .sheet(item: $selectedProfile) { profile in
+            UserProfileSheet(userID: profile.id, initial: profile)
+        }
     }
 
     // MARK: Search results
@@ -109,6 +114,8 @@ struct FriendsView: View {
             } else {
                 ForEach(searchResults, id: \.id) { profile in
                     FriendRow(profile: profile) { chip(for: profile) }
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedProfile = profile }
                 }
             }
         }
@@ -170,6 +177,8 @@ struct FriendsView: View {
                         FriendChip(label: "Add", variant: .white,
                                    action: { addSuggested(item) }, disabled: actionInProgress)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { selectedProfile = item.profileRef }
                 }
             }
         }
@@ -191,6 +200,8 @@ struct FriendsView: View {
                                        action: { decline(request) }, disabled: actionInProgress)
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { selectedProfile = request.profile }
                 }
             }
         }
@@ -220,6 +231,8 @@ struct FriendsView: View {
                         .buttonStyle(.plain)
                         .disabled(actionInProgress)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { selectedProfile = friend.profile }
                 }
             }
         }
