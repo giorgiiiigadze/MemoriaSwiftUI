@@ -81,13 +81,19 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        @Bindable var appState = appState
+        return NavigationStack {
             ZStack {
                 Colors.background.ignoresSafeArea()
                 content
             }
             // Refresh the badge whenever Home reappears (e.g. after viewing & reading notifications).
             .onAppear { Task { await loadUnread() } }
+            // Opens a drop reached via an invite deep link (`memoria://drop/<id>`); AppState sets
+            // `pendingDropID` after joining, and clears it when this screen is popped.
+            .navigationDestination(item: $appState.pendingDropID) { dropID in
+                DropDetailView(dropID: dropID)
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Standalone glass buttons: notifications on the left, search on the right.
@@ -153,6 +159,17 @@ struct HomeView: View {
         // Live feed: refetch whenever a drop the user can see changes, or they're invited to a new
         // one — so a drop someone else creates (and invites them to) appears without a manual refresh.
         .task(id: currentUserID) { await observeFeed() }
+        // Deterministic refresh after joining a drop via a scanned QR — the new drop shows up on the
+        // feed immediately, without depending on realtime delivery.
+        .onChange(of: appState.homeFeedReloadToken) { Task { await load() } }
+        // A drop the user just left/declined from its detail screen — remove it from the feed at once
+        // (optimistic), then clear the signal. Realtime/refetch later reconcile the same result.
+        .onChange(of: appState.exitedDropID) { _, id in
+            guard let id else { return }
+            drops.removeAll { $0.id == id }
+            HomeDropsCache.store(drops)
+            appState.exitedDropID = nil
+        }
         .alert("Delete Failed", isPresented: $didDeleteFail) {
             Button("OK", role: .cancel) {}
         } message: {

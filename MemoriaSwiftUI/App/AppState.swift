@@ -22,6 +22,14 @@ enum AddAccountMode {
     case signIn, signUp
 }
 
+/// A transient bottom notice (e.g. after a drop action — joined, left, declined). Owned by
+/// `AppState.toast` and rendered once at the app root by `ToastView`, so any screen can raise one.
+struct ToastState: Identifiable, Equatable {
+    let id = UUID()
+    let text: String
+    var systemImage: String?
+}
+
 @Observable
 final class AppState {
     private(set) var phase: RootPhase = .splash
@@ -48,7 +56,30 @@ final class AppState {
     /// view (e.g. the invite sheet's "Find friends" button) route to a tab it can't reach directly.
     var requestedTab: AppTab?
 
+    /// The drop to open from an invite deep link (`memoria://drop/<id>`), once the user is joined.
+    /// Observed by the Home tab's `.navigationDestination`, and cleared when that screen is popped.
+    var pendingDropID: UUID?
+
+    /// Bumped after a mutation outside the Home feed adds to it — currently joining a drop via a
+    /// scanned QR — so the feed reloads at once instead of waiting on realtime or a manual pull.
+    private(set) var homeFeedReloadToken = 0
+
+    /// A drop the user just left or declined from its detail screen. The Home feed removes it
+    /// optimistically the moment it's set — so it's gone before the realtime tick or a refetch lands
+    /// — then clears this back to nil.
+    var exitedDropID: UUID?
+
+    /// A transient bottom toast (drop actions like joining or leaving). Raised via `showToast`; the
+    /// app root renders it and it auto-clears after a couple of seconds.
+    private(set) var toast: ToastState?
+    private var toastDismissTask: Task<Void, Never>?
+
+    /// A drop id captured from a deep link that arrived before we were signed in and in `.app`.
+    /// Held until `enterApp`, then processed by `processLinkedDropIfReady`.
+    private var linkedDropID: UUID?
+
     private let client = SupabaseClient.shared
+    private let dropsService = DropsService()
     private var authStateTask: Task<Void, Never>?
 
     private var hasSeenOnboarding: Bool {
@@ -115,6 +146,52 @@ final class AppState {
         self.session = session
         phase = .profileSetup
         isAddingAccount = false
+    }
+
+    // MARK: Deep links
+
+    /// Entry point for an incoming custom-scheme URL (`.onOpenURL`). Parses a `memoria://drop/<id>`
+    /// link and remembers the target; if we're already signed in it opens right away, otherwise it's
+    /// processed after `enterApp`. Non-drop or malformed links are ignored.
+    func handleDeepLink(_ url: URL) {
+        guard let dropID = DeepLink.dropID(from: url) else { return }
+        linkedDropID = dropID
+        Task { await processLinkedDropIfReady() }
+    }
+
+    /// If a deep-linked drop is pending and the app is ready (signed in, in `.app`), invite the
+    /// caller to it (idempotent, best-effort) and route the Home tab to open it. The invite makes the
+    /// drop readable under RLS, so `DropDetailView` can load it and show its Accept/Decline bar.
+    private func processLinkedDropIfReady() async {
+        guard phase == .app, session != nil, let dropID = linkedDropID else { return }
+        linkedDropID = nil
+        // Best-effort: if the invite fails (already a member, or a transient error) still try to open;
+        // the detail screen will surface its own error if the drop truly isn't reachable.
+        try? await dropsService.joinDrop(dropID: dropID)
+        // Invite is committed — refresh the feed now so the drop is already there when the user backs
+        // out of it, rather than depending on realtime latency.
+        homeFeedReloadToken += 1
+        requestedTab = .home
+        pendingDropID = dropID
+    }
+
+    // MARK: Toast
+
+    /// Raise a transient bottom toast. Replaces any current one and restarts the auto-dismiss timer.
+    func showToast(_ text: String, systemImage: String? = nil) {
+        toast = ToastState(text: text, systemImage: systemImage)
+        toastDismissTask?.cancel()
+        toastDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+        }
+    }
+
+    /// Dismiss the current toast immediately (e.g. on tap).
+    func dismissToast() {
+        toastDismissTask?.cancel()
+        toast = nil
     }
 
     // MARK: Account switching
@@ -299,6 +376,8 @@ final class AppState {
             ),
             active: true
         )
+        // A deep link may have arrived on a cold boot before we were signed in — open it now.
+        Task { await processLinkedDropIfReady() }
     }
 
     /// A session we can't turn into a usable `.app` state (unfinished/missing/rejected profile). If

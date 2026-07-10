@@ -34,6 +34,7 @@ struct DropDetailView: View {
     @State private var isConfirmingDecline = false
     @State private var isConfirmingLeave = false
     @State private var isInvitingFriends = false
+    @State private var isShowingQR = false
     @State private var errorMessage: String?
 
     // The one-time "reveal" moment (first open after the drop opens), staged in two acts:
@@ -161,6 +162,12 @@ struct DropDetailView: View {
                         Image(systemName: "person.fill.badge.plus")
                     }
                     .popoverTip(inviteTip)
+                    // A QR of the drop's share link, for inviting someone in person by scan.
+                    Button {
+                        isShowingQR = true
+                    } label: {
+                        Image(systemName: "qrcode")
+                    }
                 }
                 Menu {
                     ShareLink(item: shareText) {
@@ -244,6 +251,12 @@ struct DropDetailView: View {
                     inviterID: userID
                 )
             }
+        }
+        .sheet(isPresented: $isShowingQR) {
+            // Encode the custom-scheme deep link so scanning opens the app straight to this drop
+            // (and invites the scanner, pending their Accept), rather than the plain web URL used for
+            // text shares.
+            DropQRSheet(dropTitle: drop?.title ?? "this drop", linkURL: DeepLink.drop(dropID).absoluteString)
         }
         .alert("Something went wrong", isPresented: errorAlertBinding) {
             Button("OK", role: .cancel) {}
@@ -514,13 +527,23 @@ struct DropDetailView: View {
     }
 
     private func load() async {
-        if let fetched = try? await dropsService.fetchDrop(id: dropID) {
-            drop = fetched
-            DropDetailCache.storeDrop(fetched)
+        // Fetch the drop and its photos concurrently, then assign both in one synchronous block. On
+        // an accept-triggered reload the drop's status flips to `accepted` and the photos RLS opens
+        // up at the same moment — assigning them together (no `await` between) coalesces into a single
+        // SwiftUI update, so the grid never renders as "accepted but empty" (the "No photos yet" /
+        // "Be the first" flash) in the gap before the photos land.
+        async let dropFetch = dropsService.fetchDrop(id: dropID)
+        async let photosFetch = photosService.fetchPhotos(dropID: dropID)
+        let fetchedDrop = try? await dropFetch
+        let fetchedPhotos = try? await photosFetch
+
+        if let fetchedDrop {
+            drop = fetchedDrop
+            DropDetailCache.storeDrop(fetchedDrop)
         }
-        if let fetched = try? await photosService.fetchPhotos(dropID: dropID) {
-            photos = fetched
-            DropDetailCache.storePhotos(fetched, for: dropID)
+        if let fetchedPhotos {
+            photos = fetchedPhotos
+            DropDetailCache.storePhotos(fetchedPhotos, for: dropID)
         }
         photosLoaded = true
         // Runs synchronously right after the state above, so SwiftUI coalesces it into one update:
@@ -611,6 +634,7 @@ struct DropDetailView: View {
                 // Reload: the drop's participant status flips to accepted and the photos RLS now
                 // returns the whole grid.
                 await load()
+                appState.showToast("Joined \(drop?.title ?? "the drop")", systemImage: "checkmark.circle.fill")
             } catch {
                 // Cancellations (view torn down mid-action) aren't real failures — stay silent.
                 if !error.isCancellation {
@@ -628,7 +652,9 @@ struct DropDetailView: View {
             do {
                 try await dropsService.declineInvite(dropID: dropID, userID: userID)
                 // They've opted out — leave the drop. RLS has already revoked their access, so
-                // there's nothing left to show here.
+                // there's nothing left to show here. Tell Home to drop it from the feed at once.
+                appState.exitedDropID = dropID
+                appState.showToast("Invitation declined")
                 dismiss()
             } catch {
                 if !error.isCancellation {
@@ -645,7 +671,10 @@ struct DropDetailView: View {
         Task {
             do {
                 try await dropsService.leaveDrop(dropID: dropID, userID: userID)
-                // They've left — RLS has revoked their access, so drop back out of the drop.
+                // They've left — RLS has revoked their access, so drop back out of the drop. Tell
+                // Home to remove it from the feed at once.
+                appState.exitedDropID = dropID
+                appState.showToast("Left the drop")
                 dismiss()
             } catch {
                 if !error.isCancellation {
@@ -689,8 +718,13 @@ struct DropDetailView: View {
         Task { try? await dropsService.setPinned(dropID: dropID, pinned: next) }
     }
 
+    /// The canonical per-drop link, shared verbatim by both the QR code and the share sheet.
+    private var dropShareURL: String {
+        "https://memoria.app/drop/\(dropID.uuidString.lowercased())"
+    }
+
     private var shareText: String {
-        "Check out \"\(drop?.title ?? "this drop")\" on Memoria\nhttps://memoria.app/drop/\(dropID.uuidString.lowercased())"
+        "Check out \"\(drop?.title ?? "this drop")\" on Memoria\n\(dropShareURL)"
     }
 
     private func deleteDrop() {

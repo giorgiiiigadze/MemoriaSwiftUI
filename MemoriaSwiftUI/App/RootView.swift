@@ -54,6 +54,22 @@ struct RootView: View {
             }
         }
         .environment(appState)
+        // App-wide transient toast (drop actions), floating just above the home indicator so it
+        // clears over any screen — tab bar, pushed detail, or modal content beneath it.
+        .overlay(alignment: .bottom) {
+            if let toast = appState.toast {
+                ToastView(state: toast)
+                    // Sit clear above the tab bar (rather than overlapping it) — measured from the
+                    // safe-area bottom, this clears a standard tab bar with a small gap.
+                    .padding(.bottom, Spacing.massive)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onTapGesture { appState.dismissToast() }
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.82), value: appState.toast)
+        // A scanned drop QR (`memoria://drop/<id>`) opens here; AppState joins the user and routes
+        // the Home tab to the drop.
+        .onOpenURL { appState.handleDeepLink($0) }
         // Add-account flow: presents the login screen over the app without signing out the current
         // account. A successful sign-in flips `phase` to `.app`, and `hydrate` clears
         // `isAddingAccount`, auto-dismissing this cover as the switch completes.

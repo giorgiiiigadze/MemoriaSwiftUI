@@ -152,6 +152,17 @@ final class DropsService {
             .execute()
     }
 
+    /// Invite the current user to a drop from a scanned link/QR (`memoria://drop/<id>`). Calls the
+    /// `join_drop` RPC, which adds the *current* user (derived server-side from the session, so this
+    /// can only ever invite the caller) as an `invited` participant — they still Accept in the drop
+    /// via the detail page's accept bar. Idempotent: a fresh scan invites, a previously declined/left
+    /// membership is re-invited, and an existing invited/accepted membership is left untouched.
+    func joinDrop(dropID: UUID) async throws {
+        try await client
+            .rpc("join_drop", params: ["p_drop_id": dropID])
+            .execute()
+    }
+
     /// Decline a pending invitation. Flips the participant row to `declined` (rather than deleting
     /// it) so the invite doesn't simply reappear on the next sync and the creator can still see the
     /// person passed. RLS then drops the user's access to the drop's photos.
