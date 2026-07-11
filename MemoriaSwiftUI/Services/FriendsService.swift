@@ -68,6 +68,25 @@ final class FriendsService {
         return rows.first
     }
 
+    /// Send (or re-send) a friend request via the `request_friend` RPC, which is robust to a prior
+    /// declined/blocked row (a plain insert would hit the directional unique constraint). Used by the
+    /// user profile page's Add Friend button.
+    func requestFriend(_ other: UUID) async throws {
+        try await client
+            .rpc("request_friend", params: ["p_other": other])
+            .execute()
+    }
+
+    /// Friends the current user and `other` have in common — backs the "mutual friends" line on the
+    /// user profile page. Uses the `mutual_friends` RPC (SECURITY DEFINER) so it can read both users'
+    /// friendships while only ever returning the intersection.
+    func mutualFriends(with other: UUID) async throws -> [DropWithParticipants.ProfileRef] {
+        try await client
+            .rpc("mutual_friends", params: ["p_other": other])
+            .execute()
+            .value
+    }
+
     /// Number of accepted friendships the user is part of — the Profile stat. Head/count request,
     /// so no rows are returned.
     func friendCount(userID: UUID) async throws -> Int {

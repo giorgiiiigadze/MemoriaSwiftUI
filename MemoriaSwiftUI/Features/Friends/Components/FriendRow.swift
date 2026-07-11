@@ -77,9 +77,9 @@ struct FriendRowSkeleton: View {
                 .frame(width: friendRowAvatarSize, height: friendRowAvatarSize)
 
             VStack(alignment: .leading, spacing: 5) {
-                SkeletonBlock(cornerRadius: Radii.sm)
+                SkeletonBlock(cornerRadius: Radii.xs)
                     .frame(width: 130, height: 13)
-                SkeletonBlock(cornerRadius: Radii.sm)
+                SkeletonBlock(cornerRadius: Radii.xs)
                     .frame(width: 80, height: 11)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -22,7 +22,7 @@ struct FriendsView: View {
     @State private var actionInProgress = false
     /// The friend pending an unfriend confirmation; non-nil drives the confirmation alert.
     @State private var friendToUnfriend: Friend?
-    /// The person whose profile card is open; non-nil presents the `UserProfileSheet`.
+    /// The person whose profile page is open; non-nil presents `UserProfileView` full-screen.
     @State private var selectedProfile: DropWithParticipants.ProfileRef?
 
     private let service = FriendsService()
@@ -97,8 +97,10 @@ struct FriendsView: View {
         } message: { friend in
             Text("You'll no longer be friends with \(friend.profile.name).")
         }
-        .sheet(item: $selectedProfile) { profile in
-            UserProfileSheet(userID: profile.id, initial: profile)
+        // Full profile page, sliding up from the bottom (dismissed by its chevron.down). Reload on
+        // dismiss so a friend request sent from the profile is reflected in the rows' chips.
+        .fullScreenCover(item: $selectedProfile, onDismiss: { Task { await load() } }) { profile in
+            UserProfileView(userID: profile.id, initial: profile)
         }
     }
 
@@ -216,14 +218,13 @@ struct FriendsView: View {
                 emptyState(icon: "person.2.fill", title: "No friends yet",
                            subtitle: "Search for people to add.")
             } else {
-                sectionLabel("Friends")
                 ForEach(connections.friends) { friend in
                     FriendRow(profile: friend.profile, since: friend.since) {
                         Button {
                             friendToUnfriend = friend
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Colors.textTertiary)
                                 .frame(width: 30, height: 30)
                                 .contentShape(Rectangle())

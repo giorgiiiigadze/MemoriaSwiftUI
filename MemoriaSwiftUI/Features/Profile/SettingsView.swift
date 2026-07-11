@@ -88,9 +88,13 @@ struct SettingsView: View {
         NavigationLink {
             destination()
         } label: {
-            Label(title, systemImage: systemImage)
-                .imageScale(.small)
-                .foregroundStyle(Colors.textPrimary)
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13))
+            }
+            .foregroundStyle(Colors.textPrimary)
         }
     }
 }

@@ -25,6 +25,8 @@ struct HomeView: View {
     @State private var isShowingCreateDrop = false
     /// The drop whose "add yours" prompt was tapped — drives the camera cover for a feed-level upload.
     @State private var uploadTarget: DropWithParticipants?
+    /// A creator whose profile page to open (tapped from a drop card's header).
+    @State private var selectedProfile: DropWithParticipants.ProfileRef?
 
     private let service = DropsService()
     private let notificationsService = NotificationsService()
@@ -196,6 +198,10 @@ struct HomeView: View {
             CameraView { image in await performUpload(image, to: drop) }
                 .ignoresSafeArea()
         }
+        // A drop card's creator profile, opened by tapping the card's identity header.
+        .fullScreenCover(item: $selectedProfile) { profile in
+            UserProfileView(userID: profile.id, initial: profile)
+        }
     }
 
     /// Uploads a photo captured from the feed prompt to `drop`, then refreshes so the prompt clears.
@@ -246,7 +252,17 @@ struct HomeView: View {
                                 currentUserID: currentUserID,
                                 onDelete: { delete(drop) },
                                 onTogglePin: { togglePin(drop) },
-                                onUpload: { uploadTarget = drop }
+                                onUpload: { uploadTarget = drop },
+                                onTapCreator: {
+                                    // Your own identity → your Profile tab; anyone else → their page.
+                                    if let creator = drop.creator {
+                                        if creator.id == currentUserID {
+                                            appState.requestedTab = .profile
+                                        } else {
+                                            selectedProfile = creator
+                                        }
+                                    }
+                                }
                             )
                             .onAppear { DropPrefetcher.shared.prefetch(drop) }
                         }

@@ -18,6 +18,8 @@ struct DropCard: View {
     /// Invoked when the viewer taps "Upload" on the still-collecting prompt. The parent owns the
     /// camera + upload so the flow is shared with the drop detail page.
     var onUpload: () -> Void = {}
+    /// Invoked when the viewer taps the creator's avatar/name in the header — opens their profile.
+    var onTapCreator: () -> Void = {}
 
     @State private var isConfirmingDelete = false
     @State private var isShowingReportNotice = false
@@ -90,23 +92,32 @@ struct DropCard: View {
 
     private var header: some View {
         HStack(spacing: Spacing.xs) {
-            if showAvatar {
-                AvatarView(url: drop.creator?.avatarURL, name: creatorName ?? "?", size: avatarSize)
-            }
+            // The creator identity cluster opens their profile; the menu keeps its own taps.
+            Button {
+                onTapCreator()
+            } label: {
+                HStack(spacing: Spacing.xs) {
+                    if showAvatar {
+                        AvatarView(url: drop.creator?.avatarURL, name: creatorName ?? "?", size: avatarSize)
+                    }
 
-            VStack(alignment: .leading, spacing: 0) {
-                Text(primary)
-                    .font(Typography.font(.sm, weight: .medium))
-                    .foregroundStyle(Colors.white)
-                    .lineLimit(1)
-                if let dateLabel {
-                    Text(dateLabel)
-                        .font(Typography.font(.sm))
-                        .foregroundStyle(Colors.textTertiary)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(primary)
+                            .font(Typography.font(.sm, weight: .medium))
+                            .foregroundStyle(Colors.white)
+                            .lineLimit(1)
+                        if let dateLabel {
+                            Text(dateLabel)
+                                .font(Typography.font(.sm))
+                                .foregroundStyle(Colors.textTertiary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
 
             menu
         }

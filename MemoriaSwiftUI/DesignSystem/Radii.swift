@@ -1,6 +1,7 @@
 import CoreGraphics
 
 enum Radii {
+    static let xs: CGFloat = 4
     static let sm: CGFloat = 8
     static let photo: CGFloat = 10
     static let md: CGFloat = 12
