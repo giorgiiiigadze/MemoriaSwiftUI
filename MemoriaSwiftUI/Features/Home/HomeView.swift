@@ -96,7 +96,9 @@ struct HomeView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Standalone glass buttons: notifications on the left, search on the right.
+                // Standalone glass buttons: notifications on the left, search on the right. Horizontal
+                // padding + a capsule border shape make the native glass render as a wider oval pill
+                // (rather than the default tight circle).
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
                         NotificationsView(onOpenFriends: onOpenFriends)
@@ -113,10 +115,13 @@ struct HomeView: View {
                                 Image(systemName: "bell.fill")
                             }
                         }
+                        .padding(.horizontal, Spacing.xxs)
                         .accessibilityLabel(unreadCount > 0
                             ? "Notifications, \(unreadCount) unread"
                             : "Notifications")
                     }
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -124,8 +129,14 @@ struct HomeView: View {
                         // rather than always-visible. The onChange below then presents it.
                         isSearchActive = true
                     } label: {
+                        // The magnifyingglass glyph is narrower than the bell/gear, so it needs a
+                        // little extra horizontal padding to widen its capsule into a matching oval
+                        // rather than a circle.
                         Image(systemName: "magnifyingglass")
+                            .padding(.horizontal, Spacing.xs)
                     }
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
                 }
                 ToolbarItem(placement: .principal) {
                     Text("Memoria")
@@ -162,13 +173,12 @@ struct HomeView: View {
         // Deterministic refresh after joining a drop via a scanned QR — the new drop shows up on the
         // feed immediately, without depending on realtime delivery.
         .onChange(of: appState.homeFeedReloadToken) { Task { await load() } }
-        // A drop the user just left/declined from its detail screen — remove it from the feed at once
-        // (optimistic), then clear the signal. Realtime/refetch later reconcile the same result.
-        .onChange(of: appState.exitedDropID) { _, id in
-            guard let id else { return }
-            drops.removeAll { $0.id == id }
+        // A drop removed from its detail screen (deleted / left / declined) — drop it from the feed
+        // at once (optimistic). Realtime/refetch later reconcile the same result.
+        .onChange(of: appState.lastDropRemoval) { _, removal in
+            guard let removal else { return }
+            drops.removeAll { $0.id == removal.dropID }
             HomeDropsCache.store(drops)
-            appState.exitedDropID = nil
         }
         .alert("Delete Failed", isPresented: $didDeleteFail) {
             Button("OK", role: .cancel) {}

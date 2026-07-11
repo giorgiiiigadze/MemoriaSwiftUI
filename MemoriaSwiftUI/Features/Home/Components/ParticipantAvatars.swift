@@ -30,11 +30,6 @@ struct ParticipantAvatars: View {
         let visible = Array(ordered.prefix(maxVisible))
         let extra = ordered.count - maxVisible
 
-        // "X of Y uploaded" counts only active members (declined/left people aren't expected to
-        // upload), so the label and the dimmed avatars tell the same story.
-        let active = participants.filter { !Self.isInactive($0.status) }
-        let uploadedCount = active.filter(\.hasUploaded).count
-
         if !visible.isEmpty {
             HStack(spacing: Spacing.xs) {
             // Negative spacing overlaps each avatar over its neighbour; the z-index steps down
@@ -76,16 +71,6 @@ struct ParticipantAvatars: View {
                         .zIndex(0)
                 }
             }
-
-                Spacer(minLength: Spacing.xs)
-
-                if !active.isEmpty {
-                    Text("\(uploadedCount) of \(active.count) uploaded")
-                        .font(Typography.font(.xs, weight: .semiBold))
-                        .foregroundStyle(Colors.white)
-                        // A soft shadow keeps the white text legible over bright photos.
-                        .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
-                }
             }
         }
     }

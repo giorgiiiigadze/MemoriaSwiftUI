@@ -30,6 +30,14 @@ struct ToastState: Identifiable, Equatable {
     var systemImage: String?
 }
 
+/// One drop removed from the user's world (deleted, left, or declined). The `token` forces a fresh
+/// value per removal, so observers re-fire even when the same drop id is removed twice (e.g. re-join
+/// then leave again). See `AppState.markDropRemoved`.
+struct DropRemoval: Equatable {
+    let dropID: UUID
+    private let token = UUID()
+}
+
 @Observable
 final class AppState {
     private(set) var phase: RootPhase = .splash
@@ -64,10 +72,10 @@ final class AppState {
     /// scanned QR — so the feed reloads at once instead of waiting on realtime or a manual pull.
     private(set) var homeFeedReloadToken = 0
 
-    /// A drop the user just left or declined from its detail screen. The Home feed removes it
-    /// optimistically the moment it's set — so it's gone before the realtime tick or a refetch lands
-    /// — then clears this back to nil.
-    var exitedDropID: UUID?
+    /// The most recent drop removed anywhere — deleted, left, or declined. Every list that shows
+    /// drops (Home feed, Profile grid, Calendar) observes this and drops the matching card at once,
+    /// so it's already gone on whichever screen you land on, without waiting for the realtime event.
+    private(set) var lastDropRemoval: DropRemoval?
 
     /// A transient bottom toast (drop actions like joining or leaving). Raised via `showToast`; the
     /// app root renders it and it auto-clears after a couple of seconds.
@@ -192,6 +200,15 @@ final class AppState {
     func dismissToast() {
         toastDismissTask?.cancel()
         toast = nil
+    }
+
+    // MARK: Drop removal
+
+    /// Signal that a drop was removed (deleted, left, or declined) so every drops list drops it
+    /// optimistically — instant, without waiting for realtime. A new value each call (fresh token)
+    /// so repeat removals of the same drop still fire.
+    func markDropRemoved(_ id: UUID) {
+        lastDropRemoval = DropRemoval(dropID: id)
     }
 
     // MARK: Account switching

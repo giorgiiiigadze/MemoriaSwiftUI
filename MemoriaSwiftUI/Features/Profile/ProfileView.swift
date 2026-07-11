@@ -56,9 +56,23 @@ struct ProfileView: View {
                             AvatarView(url: profile?.avatarURL, name: displayName, size: 112)
                                 .padding(.top, Spacing.xl)
 
-                            Text(displayName)
-                                .font(Typography.font(.xl, weight: .strong))
-                                .foregroundStyle(Colors.textPrimary)
+                            HStack(spacing: Spacing.xs) {
+                                Text(displayName)
+                                    .font(Typography.font(.xl, weight: .strong))
+                                    .foregroundStyle(Colors.textPrimary)
+
+                                // White pencil button → the profile edit screen.
+                                NavigationLink {
+                                    ProfileDetailsView()
+                                } label: {
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Colors.white)
+                                        .frame(width: 28, height: 28)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
 
                             statsRow
                                 .padding(.top, Spacing.xs)
@@ -96,8 +110,11 @@ struct ProfileView: View {
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Image(systemName: "gearshape")
+                        Image(systemName: "gearshape.fill")
+                            .padding(.horizontal, Spacing.xxs)
                     }
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
                     .tint(Colors.textPrimary)
                 }
             }
@@ -113,6 +130,13 @@ struct ProfileView: View {
         .preferredColorScheme(.dark)
         .task { await loadDrops() }
         .task { await loadStats() }
+        // A drop deleted/left from its detail screen — drop it from the grid at once, so returning
+        // here after deleting one of your own drops doesn't show a stale card.
+        .onChange(of: appState.lastDropRemoval) { _, removal in
+            guard let removal else { return }
+            drops.removeAll { $0.id == removal.dropID }
+            ProfileDropsCache.store(drops)
+        }
     }
 
     /// TikTok-style stat row: three number-over-label columns, evenly spaced, centered under the name.

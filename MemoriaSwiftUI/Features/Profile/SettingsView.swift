@@ -16,7 +16,8 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            // Apple-ID-style header row: avatar + name + handle, tapping into the profile screen.
+            // FIRST section: the Apple-ID-style profile row — avatar + name + handle, into the
+            // profile screen.
             Section {
                 NavigationLink {
                     ProfileDetailsView()
@@ -36,10 +37,23 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, Spacing.xxs)
                 }
-            } header: {
-                sectionHeader("Account")
             }
 
+            Section {
+                settingsRow("Notifications", systemImage: "bell.fill") { NotificationSettingsView() }
+                settingsRow("Privacy & Safety", systemImage: "lock.fill") { PrivacySettingsView() }
+            } header: {
+                sectionHeader("Preferences")
+            }
+
+            Section {
+                settingsRow("Data & Storage", systemImage: "externaldrive.fill") { DataStorageSettingsView() }
+                settingsRow("About", systemImage: "info.circle.fill") { AboutView() }
+            } header: {
+                sectionHeader("General")
+            }
+
+            // LAST section: sign out.
             Section {
                 Button(role: .destructive) {
                     // Logs out the active account; if another account is saved, switches straight to
@@ -48,8 +62,6 @@ struct SettingsView: View {
                 } label: {
                     Text("Log Out")
                 }
-            } header: {
-                sectionHeader("Session")
             }
         }
         .scrollContentBackground(.hidden)
@@ -62,9 +74,24 @@ struct SettingsView: View {
     /// than the List's default tiny uppercase grey caption).
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(Typography.font(.lg, weight: .strong))
+            .font(Typography.font(.md, weight: .strong))
             .foregroundStyle(Colors.textPrimary)
             .textCase(nil)
+    }
+
+    /// A standard settings row: an SF Symbol + title that pushes `destination`.
+    private func settingsRow<Destination: View>(
+        _ title: String,
+        systemImage: String,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            Label(title, systemImage: systemImage)
+                .imageScale(.small)
+                .foregroundStyle(Colors.textPrimary)
+        }
     }
 }
 

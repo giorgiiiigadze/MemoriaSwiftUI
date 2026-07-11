@@ -55,6 +55,13 @@ struct CalendarView: View {
         }
         .preferredColorScheme(.dark)
         .task { await load() }
+        // A drop deleted/left from its detail screen — drop it from the month grid at once, so
+        // returning here doesn't show a stale card.
+        .onChange(of: appState.lastDropRemoval) { _, removal in
+            guard let removal else { return }
+            allDrops.removeAll { $0.id == removal.dropID }
+            CalendarDropsCache.store(allDrops)
+        }
         .sheet(isPresented: $isShowingCreateDrop) {
             CreateDropView {
                 Task { await load() }

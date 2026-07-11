@@ -243,7 +243,9 @@ struct DropDetailView: View {
         } message: {
             Text("You'll stop seeing this drop and its photos. The host can invite you again later.")
         }
-        .sheet(isPresented: $isInvitingFriends) {
+        // Reload on dismiss so freshly-invited participants show in the avatar row immediately,
+        // rather than waiting for the realtime `drop_participants` event.
+        .sheet(isPresented: $isInvitingFriends, onDismiss: { Task { await load() } }) {
             if let userID {
                 InviteFriendsSheet(
                     dropID: dropID,
@@ -652,8 +654,8 @@ struct DropDetailView: View {
             do {
                 try await dropsService.declineInvite(dropID: dropID, userID: userID)
                 // They've opted out — leave the drop. RLS has already revoked their access, so
-                // there's nothing left to show here. Tell Home to drop it from the feed at once.
-                appState.exitedDropID = dropID
+                // there's nothing left to show here. Drop it from every list at once.
+                appState.markDropRemoved(dropID)
                 appState.showToast("Invitation declined")
                 dismiss()
             } catch {
@@ -671,9 +673,9 @@ struct DropDetailView: View {
         Task {
             do {
                 try await dropsService.leaveDrop(dropID: dropID, userID: userID)
-                // They've left — RLS has revoked their access, so drop back out of the drop. Tell
-                // Home to remove it from the feed at once.
-                appState.exitedDropID = dropID
+                // They've left — RLS has revoked their access, so drop back out of the drop. Drop it
+                // from every list at once.
+                appState.markDropRemoved(dropID)
                 appState.showToast("Left the drop")
                 dismiss()
             } catch {
@@ -731,6 +733,8 @@ struct DropDetailView: View {
         Task {
             do {
                 try await dropsService.deleteDrop(id: dropID)
+                // Drop it from every list at once (feed / profile / calendar) before dismissing.
+                appState.markDropRemoved(dropID)
                 dismiss()
             } catch {
                 if !error.isCancellation {
