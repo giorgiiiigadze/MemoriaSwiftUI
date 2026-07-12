@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A single drop photo, full-screen — its own page, pushed natively (right-slide transition + the
 /// system back button in a transparent nav bar). The photo is shown in a `DropCard`-style 3:4
-/// rounded container over a solid black backdrop. One photo per page — tapping a different photo
-/// opens its own page.
+/// rounded container over a blurred, dimmed version of the same photo. One photo per page —
+/// tapping a different photo opens its own page.
 struct PhotoViewerView: View {
     let photos: [PhotoWithUploader]
     let startIndex: Int
@@ -21,13 +21,12 @@ struct PhotoViewerView: View {
     }()
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             background
 
             VStack(spacing: Spacing.md) {
                 photoCard(currentPhoto)
                 placeholder
-                Spacer(minLength: 0)
             }
             .padding(.top, Spacing.md)
         }
@@ -52,6 +51,9 @@ struct PhotoViewerView: View {
                             .lineLimit(1)
                     }
                 }
+                // Animate as one cohesive unit with the nav transition (avatar + text don't
+                // desync/snap as the page slides away).
+                .geometryGroup()
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -81,9 +83,24 @@ struct PhotoViewerView: View {
         }
     }
 
-    /// Solid black backdrop behind the photo card.
+    /// The current photo itself, blurred and dimmed almost to black — a BeReal-style ambient
+    /// backdrop. Scaled up so the blur's soft edges fall off-screen.
     private var background: some View {
-        Color.black.ignoresSafeArea()
+        Group {
+            if let url = currentPhoto.imageURL {
+                CachedImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.black
+                }
+                .scaleEffect(1.2)
+                .blur(radius: 40)
+                .overlay(Colors.ink.opacity(0.6))
+            } else {
+                Color.black
+            }
+        }
+        .ignoresSafeArea()
     }
 
     /// A 3:4 rounded card that fills the width and centers vertically — the DropCard thumbnail look.
