@@ -48,14 +48,11 @@ struct DropPhotoCard: View {
                 endPoint: .bottom
             )
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    AvatarView(url: photo.uploader?.avatarURL, name: photo.uploader?.name ?? "?", size: 18)
-                    Text(photo.uploader?.name ?? "Someone")
-                        .font(Typography.font(.xs, weight: .semiBold))
-                        .foregroundStyle(Colors.white)
-                        .lineLimit(1)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(photo.uploader?.name ?? "Someone")
+                    .font(Typography.font(.xs, weight: .semiBold))
+                    .foregroundStyle(Colors.white)
+                    .lineLimit(1)
                 Text(Self.dateFormatter.string(from: photo.uploadedAt))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Colors.white.opacity(0.75))
@@ -65,6 +62,13 @@ struct DropPhotoCard: View {
         }
         .aspectRatio(3.0 / 4.0, contentMode: .fit)
         .frame(maxWidth: .infinity)
+        // Uploader avatar floated into the top-left corner; a soft shadow keeps it legible over the
+        // undimmed top of the photo.
+        .overlay(alignment: .topLeading) {
+            AvatarView(url: photo.uploader?.avatarURL, name: photo.uploader?.name ?? "?", size: 18)
+                .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+                .padding(Spacing.xs)
+        }
         .overlay(alignment: .topTrailing) {
             if photo.isPinned && !blurred { pinBadge }
         }
@@ -107,7 +111,9 @@ struct DropPhotoCard: View {
         ZStack {
             Colors.surfaceRaised
             CachedImage(url: photo.imageURL) { image in
-                image.resizable().scaledToFit()
+                // `fill` (cover): the photo covers the whole 3:4 tile edge-to-edge, cropped by the
+                // outer `clipShape`, matching BeReal's grid (no letterbox bars).
+                image.resizable().scaledToFill()
             } placeholder: {
                 Colors.surfaceRaised
             }
