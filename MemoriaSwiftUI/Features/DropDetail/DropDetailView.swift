@@ -217,8 +217,9 @@ struct DropDetailView: View {
             CameraView { image in await upload(image) }
                 .ignoresSafeArea()
         }
-        .fullScreenCover(item: viewerBinding) { start in
-            PhotoViewer(photos: viewablePhotos, startIndex: start.index)
+        // Native right-slide push into the photo viewer page (system back button dismisses it).
+        .navigationDestination(item: viewerBinding) { start in
+            PhotoViewerView(photos: viewablePhotos, startIndex: start.index)
         }
         .alert("Drop is locked", isPresented: $isShowingLockedNote) {
             Button("OK", role: .cancel) {}
@@ -764,54 +765,9 @@ struct DropDetailView: View {
     }()
 }
 
-/// Identifiable wrapper so a start index can drive a `fullScreenCover(item:)`.
-private struct ViewerStart: Identifiable {
+/// Wrapper so a start index can drive `navigationDestination(item:)`.
+private struct ViewerStart: Identifiable, Hashable {
     let index: Int
     var id: Int { index }
 }
 
-/// A full-screen, swipeable viewer of a drop's photos (opened once the drop is open).
-private struct PhotoViewer: View {
-    let photos: [PhotoWithUploader]
-    let startIndex: Int
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var index: Int
-
-    init(photos: [PhotoWithUploader], startIndex: Int) {
-        self.photos = photos
-        self.startIndex = startIndex
-        _index = State(initialValue: startIndex)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-
-                TabView(selection: $index) {
-                    ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
-                        CachedImage(url: photo.imageURL) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            ProgressView().tint(Colors.white)
-                        }
-                        .tag(offset)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .ignoresSafeArea()
-            }
-            // Native header: a transparent nav bar carrying the system liquid-glass dismiss button.
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.down")
-                    }
-                }
-            }
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .tint(Colors.white)
-        }
-    }
-}

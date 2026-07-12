@@ -92,7 +92,7 @@ struct SettingsView: View {
                 Text(title)
             } icon: {
                 Image(systemName: systemImage)
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
             }
             .foregroundStyle(Colors.textPrimary)
         }
