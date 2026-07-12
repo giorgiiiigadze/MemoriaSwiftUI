@@ -103,12 +103,12 @@ struct DropCard: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(primary)
-                            .font(Typography.font(.sm, weight: .medium))
+                            .font(Typography.font(.xsm, weight: .medium))
                             .foregroundStyle(Colors.white)
                             .lineLimit(1)
                         if let dateLabel {
                             Text(dateLabel)
-                                .font(Typography.font(.sm))
+                                .font(Typography.font(.xsm))
                                 .foregroundStyle(Colors.textTertiary)
                                 .lineLimit(1)
                         }
@@ -260,11 +260,13 @@ struct DropCardSkeleton: View {
                 SkeletonBlock(cornerRadius: avatarSize / 2)
                     .frame(width: avatarSize, height: avatarSize)
 
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    SkeletonBlock(cornerRadius: Radii.sm)
-                        .frame(width: 150, height: 13)
-                    SkeletonBlock(cornerRadius: Radii.sm)
-                        .frame(width: 90, height: 11)
+                // Text skeletons match the friends-row placeholder (`FriendRowSkeleton`): same
+                // corner radius, widths, heights, and spacing.
+                VStack(alignment: .leading, spacing: 5) {
+                    SkeletonBlock(cornerRadius: Radii.xs)
+                        .frame(width: 130, height: 13)
+                    SkeletonBlock(cornerRadius: Radii.xs)
+                        .frame(width: 80, height: 11)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

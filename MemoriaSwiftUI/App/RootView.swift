@@ -30,13 +30,8 @@ struct RootView: View {
                     SplashView()
                         .transition(.opacity)
                 case .onboarding:
-                    PlaceholderScreen(
-                        title: "Onboarding",
-                        subtitle: "4-slide first-launch tutorial — not yet built",
-                        actionTitle: "Skip to Sign In",
-                        action: { appState.skipOnboarding() }
-                    )
-                    .transition(.opacity)
+                    WelcomeView(onStart: { appState.skipOnboarding() })
+                        .transition(.opacity)
                 case .auth, .profileSetup:
                     // Sharing one NavigationStack (instead of swapping `.auth`/`.profileSetup` as
                     // separate top-level cases) gets the wizard a genuine native push transition —

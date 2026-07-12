@@ -29,6 +29,9 @@ struct DropDetailView: View {
     @State private var isLeaving = false
     @State private var isShowingCamera = false
     @State private var viewerIndex: Int?
+    /// Ties each grid tile to the pushed photo viewer so the viewer zooms out of / back into the
+    /// tapped thumbnail (Instagram-style) rather than sliding.
+    @Namespace private var photoZoom
     @State private var isShowingLockedNote = false
     @State private var isConfirmingDelete = false
     @State private var isConfirmingDecline = false
@@ -79,6 +82,13 @@ struct DropDetailView: View {
     private var isLocked: Bool { drop?.state == .active || drop?.state == .ready }
     private var isOpen: Bool { drop?.state == .open || drop?.state == .expired }
 
+    /// The open/reveal date to count down to — only while the drop is still collecting and that date
+    /// is still in the future (nil hides the countdown, e.g. once it opens or has no scheduled date).
+    private var countdownOpenDate: Date? {
+        guard isLocked, let openDate = drop?.openDate, openDate > Date() else { return nil }
+        return openDate
+    }
+
     /// The current user's participant row on this drop (nil for the creator or a non-member).
     private var myParticipation: DropWithParticipants.Participant? {
         drop?.participants.first { $0.userId == userID }
@@ -89,8 +99,18 @@ struct DropDetailView: View {
     /// An accepted, non-creator member — the only role that can leave the drop.
     private var canLeave: Bool { !isCreator && myParticipation?.status == .accepted }
 
-    /// Contributions are open while the drop is still collecting (active/ready) — for members only.
-    private var canUpload: Bool { isLocked && isAcceptedMember }
+    /// Max photos one person may add to a single drop — mirrors the `enforce_photo_limit` DB trigger,
+    /// which rejects the insert past this count. Kept in sync so the UI hides the camera at the cap
+    /// instead of letting the upload fail at the database.
+    private static let photoLimit = 20
+    /// How many photos the viewer has already contributed to this drop.
+    private var myPhotoCount: Int { photos.filter { $0.uploaderId == userID }.count }
+    /// The viewer has hit the per-person photo cap for this drop.
+    private var atPhotoLimit: Bool { myPhotoCount >= Self.photoLimit }
+
+    /// Contributions are open while the drop is still collecting (active/ready), for members who
+    /// haven't yet hit the per-person photo cap.
+    private var canUpload: Bool { isLocked && isAcceptedMember && !atPhotoLimit }
 
     /// An invited (non-member) user is prompted to accept before anything else.
     private var showAcceptBar: Bool { isInvited && !isCreator }
@@ -118,7 +138,10 @@ struct DropDetailView: View {
         return photos.contains { $0.uploaderId != userID }
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.xxs), count: 3)
+    /// Gap between photo tiles (both columns and rows), tuned to match BeReal's grid — a named
+    /// constant rather than a token since it sits between `xxs` (4) and `xs` (8).
+    private static let photoGridSpacing: CGFloat = 3
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: Self.photoGridSpacing), count: 3)
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -148,6 +171,12 @@ struct DropDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .hidesTabBarWhenPushed()
         .toolbar {
+            // Live countdown to the reveal, centered in the header while the drop is still collecting.
+            if let openDate = countdownOpenDate {
+                ToolbarItem(placement: .principal) {
+                    DropCountdownView(openDate: openDate)
+                }
+            }
             // Invite + menu share one group so iOS 26 fuses them into a single Liquid Glass pill,
             // matching Home's bell/share control. Invite sits left of the ellipsis.
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -219,7 +248,7 @@ struct DropDetailView: View {
         }
         // Native right-slide push into the photo viewer page (system back button dismisses it).
         .navigationDestination(item: viewerBinding) { start in
-            PhotoViewerView(photos: viewablePhotos, startIndex: start.index)
+            PhotoViewerView(photos: viewablePhotos, startIndex: start.index, zoomNamespace: photoZoom)
         }
         .alert("Drop is locked", isPresented: $isShowingLockedNote) {
             Button("OK", role: .cancel) {}
@@ -319,7 +348,7 @@ struct DropDetailView: View {
         } else if photos.isEmpty {
             emptyState
         } else {
-            LazyVGrid(columns: columns, spacing: Spacing.xxs) {
+            LazyVGrid(columns: columns, spacing: Self.photoGridSpacing) {
                 ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                     DropPhotoCard(
                         photo: photo,
@@ -334,6 +363,8 @@ struct DropDetailView: View {
                         onTogglePin: { togglePin(photo) },
                         onTap: { selectPhoto(photo) }
                     )
+                    // Source anchor for the zoom transition into the photo viewer.
+                    .zoomTransitionSource(id: photo.id, in: photoZoom)
                 }
             }
             .padding(.horizontal, Spacing.sm)
@@ -373,7 +404,7 @@ struct DropDetailView: View {
     }
 
     private var skeleton: some View {
-        LazyVGrid(columns: columns, spacing: Spacing.xxs) {
+        LazyVGrid(columns: columns, spacing: Self.photoGridSpacing) {
             ForEach(0..<9, id: \.self) { _ in
                 SkeletonBlock(cornerRadius: Radii.md)
                     .aspectRatio(3.0 / 4.0, contentMode: .fit)
@@ -700,7 +731,13 @@ struct DropDetailView: View {
             }
         } catch {
             if !error.isCancellation {
-                errorMessage = "Could not upload your photo. Please try again."
+                // The DB's `enforce_photo_limit` trigger rejects uploads past the per-person cap;
+                // surface that as its own actionable message rather than a generic "try again".
+                if "\(error)".localizedCaseInsensitiveContains("photos per participant") {
+                    errorMessage = "You've reached the \(Self.photoLimit)-photo limit for this drop."
+                } else {
+                    errorMessage = "Could not upload your photo. Please try again."
+                }
             }
         }
     }

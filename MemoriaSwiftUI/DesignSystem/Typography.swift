@@ -21,6 +21,7 @@ enum Typography {
 
     enum Size: CGFloat {
         case xs = 12
+        case xsm = 13
         case sm = 14
         case body = 15
         case md = 16

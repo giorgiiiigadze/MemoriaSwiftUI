@@ -7,8 +7,11 @@ import SwiftUI
 struct PhotoViewerView: View {
     let photos: [PhotoWithUploader]
     let startIndex: Int
+    /// Shared with `DropDetailView`'s grid so this page zooms out of / back into its source tile.
+    let zoomNamespace: Namespace.ID
 
     @State private var isShowingReportNotice = false
+    @Environment(\.dismiss) private var dismiss
 
     /// The photo being viewed — drives the card, the header's uploader + date, and the backdrop.
     private var currentPhoto: PhotoWithUploader { photos[startIndex] }
@@ -30,10 +33,20 @@ struct PhotoViewerView: View {
             }
             .padding(.top, Spacing.md)
         }
-        // Native header: transparent bar carrying the system back button, tinted for the dark viewer.
+        // Native header: transparent bar, tinted for the dark viewer. The default back chevron is
+        // replaced with a downward chevron that dismisses the page (still runs the zoom transition).
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+            }
             // Centered uploader identity (avatar + name + upload date), DropCard-style.
             ToolbarItem(placement: .principal) {
                 HStack(spacing: Spacing.xs) {
@@ -74,6 +87,8 @@ struct PhotoViewerView: View {
             }
         }
         .tint(Colors.white)
+        // Zoom out of / back into the tapped grid tile (Instagram-style) instead of a slide push.
+        .zoomNavigationTransition(sourceID: currentPhoto.id, in: zoomNamespace)
         // Keep the tab bar hidden on this deeper page too (Drop Detail already hides it).
         .hidesTabBarWhenPushed()
         .alert("Coming soon", isPresented: $isShowingReportNotice) {
@@ -83,41 +98,42 @@ struct PhotoViewerView: View {
         }
     }
 
-    /// The current photo itself, blurred and dimmed almost to black — a BeReal-style ambient
-    /// backdrop. Scaled up so the blur's soft edges fall off-screen.
+    /// The current photo, blurred and dimmed almost to black — a BeReal-style ambient backdrop.
+    /// Rendered as an overlay on a black base (not a ZStack sibling) so the frameless `scaledToFill`
+    /// image can't inflate the page layout and blow out the photo card's width.
     private var background: some View {
-        Group {
-            if let url = currentPhoto.imageURL {
-                CachedImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Color.black
+        Color.black
+            .overlay {
+                if let url = currentPhoto.imageURL {
+                    CachedImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.black
+                    }
+                    .blur(radius: 40)
+                    .overlay(Colors.ink.opacity(0.6))
                 }
-                .scaleEffect(1.2)
-                .blur(radius: 40)
-                .overlay(Colors.ink.opacity(0.6))
-            } else {
-                Color.black
             }
-        }
-        .ignoresSafeArea()
+            .clipped()
+            .ignoresSafeArea()
     }
 
-    /// A 3:4 rounded card that fills the width and centers vertically — the DropCard thumbnail look.
+    /// A 3:4 rounded card that fills the width and centers vertically — the `DropPhotoCard` look.
+    /// The image is clipped to the tile before the rounded corners are applied so `scaledToFill`
+    /// never spills past the card's bounds.
     private func photoCard(_ photo: PhotoWithUploader) -> some View {
-        Color.clear
-            .aspectRatio(3.0 / 4.0, contentMode: .fit)
-            .frame(maxWidth: .infinity)
-            .overlay {
-                CachedImage(url: photo.imageURL) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Colors.surfaceDeep
-                }
+        ZStack {
+            Colors.surfaceDeep
+            CachedImage(url: photo.imageURL) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Colors.surfaceDeep
             }
-            .background(Colors.surfaceDeep)
-            .clipShape(RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
-            .padding(.horizontal, Spacing.xs)
+        }
+        .aspectRatio(3.0 / 4.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
+        .padding(.horizontal, Spacing.xs)
     }
 
     /// Fixed height of the placeholder container beneath the photo.
