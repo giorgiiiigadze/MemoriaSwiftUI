@@ -104,7 +104,10 @@ struct ProfileView: View {
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .foregroundStyle(Colors.textPrimary)
+                        .padding(.horizontal, Spacing.xs)
                     }
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {

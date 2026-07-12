@@ -24,7 +24,12 @@ struct PhotoViewerView: View {
         ZStack {
             background
 
-            photoCard(currentPhoto)
+            VStack(spacing: Spacing.md) {
+                photoCard(currentPhoto)
+                placeholder
+                Spacer(minLength: 0)
+            }
+            .padding(.top, Spacing.md)
         }
         // Native header: transparent bar carrying the system back button, tinted for the dark viewer.
         .navigationBarTitleDisplayMode(.inline)
@@ -96,6 +101,18 @@ struct PhotoViewerView: View {
             .background(Colors.surfaceDeep)
             .clipShape(RoundedRectangle(cornerRadius: Radii.lg, style: .continuous))
             .padding(.horizontal, Spacing.xs)
-            .frame(maxHeight: .infinity)
+    }
+
+    /// Fixed height of the placeholder container beneath the photo.
+    private let placeholderHeight: CGFloat = 120
+
+    /// Empty rounded container beneath the photo — a placeholder reserved for future content
+    /// (caption, reactions, etc.). Fixed height so it never resizes the photo above it.
+    private var placeholder: some View {
+        RoundedRectangle(cornerRadius: Radii.lg, style: .continuous)
+            .fill(Colors.surfaceDeep)
+            .frame(maxWidth: .infinity)
+            .frame(height: placeholderHeight)
+            .padding(.horizontal, Spacing.xs)
     }
 }
