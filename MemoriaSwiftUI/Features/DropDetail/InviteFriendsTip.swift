@@ -6,6 +6,7 @@ import TipKit
 struct InviteFriendsTip: Tip {
     var title: Text {
         Text("Add the people who were there, so this memory is captured from every angle.")
+            .font(.footnote)
             .foregroundColor(.secondary)
     }
 
