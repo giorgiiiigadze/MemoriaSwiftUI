@@ -5,10 +5,9 @@ import TipKit
 /// can add more friends to a drop after it's been created. Dismisses once they tap the button.
 struct InviteFriendsTip: Tip {
     var title: Text {
-        Text("Invite friends")
+        Text("Add the people who were there, so this memory is captured from every angle.")
+            .foregroundColor(.secondary)
     }
 
-    var message: Text? {
-        Text("Add more friends to this drop so everyone can share photos.")
-    }
+    var message: Text? { nil }
 }
