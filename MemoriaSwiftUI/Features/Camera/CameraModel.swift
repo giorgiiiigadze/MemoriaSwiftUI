@@ -94,7 +94,15 @@ final class CameraModel: NSObject, ObservableObject {
             }
 
             session.commitConfiguration()
-            if !session.isRunning { session.startRunning() }
+
+            // Start on a *separate* queue hop rather than inline after commit. `startRunning()` must
+            // never run while any `beginConfiguration`/`commitConfiguration` transaction is open — and
+            // attaching the preview layer to the session (on the main thread, via `CameraPreview`)
+            // opens its own implicit transaction. A second serial dispatch guarantees this block's
+            // commit — and any transaction racing it — has fully settled before we start.
+            sessionQueue.async { [session] in
+                if !session.isRunning { session.startRunning() }
+            }
         }
     }
 

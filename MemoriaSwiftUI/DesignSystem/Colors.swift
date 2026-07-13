@@ -20,7 +20,7 @@ enum Colors {
     static let borderDefault = Color(hex: 0x3B3B3B)
     static let borderSubtle = Color(hex: 0x252525)
 
-    static let accent = Color(hex: 0xD6A45B)
+    static let accent = white
     static let blue = Color(hex: 0x0A84FF)
     static let blueNotif = Color(hex: 0x3D8EFF)
     static let primary = Color(hex: 0x0044FF)

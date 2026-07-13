@@ -52,30 +52,37 @@ struct ProfileView: View {
 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
-                        VStack(spacing: Spacing.md) {
-                            AvatarView(url: profile?.avatarURL, name: displayName, size: 112)
-                                .padding(.top, Spacing.xl)
+                        VStack(spacing: Spacing.xxs) {
+                            // Tapping the avatar or the name opens the edit screen — the always-on
+                            // pencil is gone.
+                            NavigationLink {
+                                ProfileDetailsView()
+                            } label: {
+                                AvatarView(url: profile?.avatarURL, name: displayName, size: 112)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, Spacing.xl)
+                            .padding(.bottom, Spacing.xs)
 
-                            HStack(spacing: Spacing.xs) {
+                            NavigationLink {
+                                ProfileDetailsView()
+                            } label: {
                                 Text(displayName)
                                     .font(Typography.font(.xl, weight: .strong))
                                     .foregroundStyle(Colors.textPrimary)
-
-                                // White pencil button → the profile edit screen.
-                                NavigationLink {
-                                    ProfileDetailsView()
-                                } label: {
-                                    Image(systemName: "pencil")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Colors.white)
-                                        .frame(width: 28, height: 28)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
                             }
+                            .buttonStyle(.plain)
 
-                            statsRow
-                                .padding(.top, Spacing.xs)
+                            // Quiet prose replacing the old stat columns — not tappable.
+                            Text(memoriesLine)
+                                .font(Typography.font(.sm))
+                                .foregroundStyle(Colors.textSecondary)
+
+                            if let originLine {
+                                Text(originLine)
+                                    .font(Typography.font(.xs))
+                                    .foregroundStyle(Colors.textTertiary)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, Spacing.lg)
@@ -142,35 +149,52 @@ struct ProfileView: View {
         }
     }
 
-    /// TikTok-style stat row: three number-over-label columns, evenly spaced, centered under the name.
-    private var statsRow: some View {
-        HStack(spacing: 0) {
-            ProfileStat(value: drops.count, label: "Drops")
-            ProfileStat(value: friendsCount, label: "Friends")
-            ProfileStat(value: invitedCount, label: "Invited")
-        }
-        .frame(maxWidth: 300)
+    /// Quiet one-liner under the name — e.g. "12 memories with 5 friends" — replacing the old stat
+    /// columns. Singular-aware so "1 memory with 1 friend" reads naturally.
+    private var memoriesLine: String {
+        let memories = "\(drops.count) \(drops.count == 1 ? "memory" : "memories")"
+        let friends = "\(friendsCount) \(friendsCount == 1 ? "friend" : "friends")"
+        return "\(memories) with \(friends)"
     }
 
-    private var pinnedDrops: [CalendarDrop] { drops.filter(\.pinned) }
-    private var unpinnedDrops: [CalendarDrop] { drops.filter { !$0.pinned } }
+    /// "Capturing since July 2026", from the profile's creation date; nil until the profile loads.
+    private var originLine: String? {
+        guard let createdAt = profile?.createdAt else { return nil }
+        return "Capturing since \(Self.monthYearFormatter.string(from: createdAt))"
+    }
 
-    /// A "Pinned" section (when any are pinned) above the "All drops" grid.
+    /// The user's drops bucketed by month, newest month first. `fetchUserDrops` returns newest-first,
+    /// so `MonthSection.group` (which preserves order) already yields the right order — no reverse.
+    private var sections: [MonthSection] { MonthSection.group(drops) }
+
+    /// "July 2026" — for the "Capturing since" origin line.
+    private static let monthYearFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f
+    }()
+
+    /// The drops list, grouped into month sections (Calendar-tab style) — a month header above a grid
+    /// of `MiniDropCard`s. The pin badge still shows per-tile; there's no separate "Pinned" section.
     @ViewBuilder
     private var dropsSection: some View {
         if isLoadingDrops {
-            dropSection(title: "All drops") { skeletonGrid }
+            skeletonGrid
         } else if drops.isEmpty {
             emptyState(icon: "camera.viewfinder", title: "No drops yet",
                        subtitle: "Create your first drop to start a memory.",
                        actionTitle: "Create a drop") { isShowingCreateDrop = true }
         } else {
-            VStack(alignment: .leading, spacing: Spacing.xl) {
-                if !pinnedDrops.isEmpty {
-                    dropSection(title: "Pinned") { grid(pinnedDrops) }
-                }
-                if !unpinnedDrops.isEmpty {
-                    dropSection(title: "All drops") { grid(unpinnedDrops) }
+            LazyVStack(alignment: .leading, spacing: Spacing.xxl) {
+                ForEach(sections) { section in
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text(section.title)
+                            .font(Typography.font(.lg, weight: .strong))
+                            .foregroundStyle(Colors.textPrimary)
+                            .padding(.horizontal, Spacing.lg)
+
+                        grid(section.drops)
+                    }
                 }
             }
         }
@@ -202,22 +226,6 @@ struct ProfileView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, Spacing.xxxxl)
         .padding(.bottom, Spacing.xxxl)
-    }
-
-    /// A titled section (Calendar section-header style) wrapping some drops content.
-    private func dropSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text(title)
-                .font(Typography.font(.lg, weight: .strong))
-                .foregroundStyle(Colors.textPrimary)
-                .padding(.horizontal, Spacing.lg)
-
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func grid(_ items: [CalendarDrop]) -> some View {
@@ -275,24 +283,6 @@ struct ProfileView: View {
         if let count = try? await friendsService.friendCount(userID: id) { friendsCount = count }
         if let count = try? await service.invitedDropCount(userID: id) { invitedCount = count }
         ProfileStatsCache.store(friends: friendsCount, invited: invitedCount)
-    }
-}
-
-/// One TikTok-style stat: a bold count over a small muted label, filling its share of the row.
-private struct ProfileStat: View {
-    let value: Int
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text("\(value)")
-                .font(Typography.font(.lg, weight: .strong))
-                .foregroundStyle(Colors.textPrimary)
-            Text(label)
-                .font(Typography.font(.xs))
-                .foregroundStyle(Colors.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
