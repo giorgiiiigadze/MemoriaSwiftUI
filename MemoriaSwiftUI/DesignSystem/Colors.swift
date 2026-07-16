@@ -21,6 +21,8 @@ enum Colors {
     static let borderSubtle = Color(hex: 0x252525)
 
     static let accent = white
+    /// Warm crimson used for the "waiting on you" call-to-action on drop cards.
+    static let crimson = Color(hex: 0xE5484D)
     static let blue = Color(hex: 0x0A84FF)
     static let blueNotif = Color(hex: 0x3D8EFF)
     static let primary = Color(hex: 0x0044FF)

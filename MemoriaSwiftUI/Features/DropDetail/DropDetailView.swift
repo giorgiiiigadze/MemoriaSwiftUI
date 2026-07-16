@@ -255,11 +255,14 @@ struct DropDetailView: View {
         } message: {
             Text("Photos are revealed when this drop opens on its scheduled date.")
         }
-        .alert("Delete Drop", isPresented: $isConfirmingDelete) {
-            Button("Delete", role: .destructive) { deleteDrop() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently deletes the drop and all its photos for everyone.")
+        .sheet(isPresented: $isConfirmingDelete) {
+            DeleteDropSheet(dropTitle: drop?.title ?? "This drop") { _ in
+                isConfirmingDelete = false
+                deleteDrop()
+            }
+            .presentationDetents([.height(560)])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Colors.surfaceGrouped)
         }
         .alert("Decline Invitation", isPresented: $isConfirmingDecline) {
             Button("Decline", role: .destructive) { decline() }
@@ -655,8 +658,15 @@ struct DropDetailView: View {
                 .init("drops", filter: .eq("id", value: dropID.uuidString)),
                 .init("drop_participants", filter: .eq("drop_id", value: dropID.uuidString)),
             ],
+            onEvent: handleRealtimeEvent,
             onChange: { await load() }
         )
+    }
+
+    private func handleRealtimeEvent(_ event: RealtimeWatch.Event) async {
+        guard event.table == "drops", event.deletedRecordID == dropID else { return }
+        appState.markDropRemoved(dropID)
+        dismiss()
     }
 
     private func accept() {

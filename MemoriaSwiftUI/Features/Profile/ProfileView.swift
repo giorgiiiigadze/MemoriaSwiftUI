@@ -1,3 +1,4 @@
+import Supabase
 import SwiftUI
 
 /// The Profile tab (step 10). TikTok-style: a large circular avatar with the user's name beneath,
@@ -140,6 +141,7 @@ struct ProfileView: View {
         .preferredColorScheme(.dark)
         .task { await loadDrops() }
         .task { await loadStats() }
+        .task(id: profile?.id) { await observeDrops() }
         // A drop deleted/left from its detail screen — drop it from the grid at once, so returning
         // here after deleting one of your own drops doesn't show a stale card.
         .onChange(of: appState.lastDropRemoval) { _, removal in
@@ -268,6 +270,23 @@ struct ProfileView: View {
             drops = fetched
             ProfileDropsCache.store(drops)
         }
+    }
+
+    private func observeDrops() async {
+        guard let id = profile?.id else { return }
+        await RealtimeWatch.run(
+            topic: "profile-drops-\(id.uuidString)",
+            sources: [
+                .init("drops", filter: .eq("creator_id", value: id.uuidString)),
+            ],
+            onEvent: handleRealtimeEvent,
+            onChange: { await loadDrops() }
+        )
+    }
+
+    private func handleRealtimeEvent(_ event: RealtimeWatch.Event) async {
+        guard event.table == "drops", let id = event.deletedRecordID else { return }
+        appState.markDropRemoved(id)
     }
 
     private func togglePin(_ drop: CalendarDrop) {

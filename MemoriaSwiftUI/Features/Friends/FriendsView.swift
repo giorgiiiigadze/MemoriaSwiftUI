@@ -97,10 +97,12 @@ struct FriendsView: View {
         } message: { friend in
             Text("You'll no longer be friends with \(friend.profile.name).")
         }
-        // Full profile page, sliding up from the bottom (dismissed by its chevron.down). Reload on
-        // dismiss so a friend request sent from the profile is reflected in the rows' chips.
-        .fullScreenCover(item: $selectedProfile, onDismiss: { Task { await load() } }) { profile in
+        // Native profile sheet: swipe-down dismissal follows the finger. Reload on dismiss so a
+        // friend request sent from the profile is reflected in the rows' chips.
+        .sheet(item: $selectedProfile, onDismiss: { Task { await load() } }) { profile in
             UserProfileView(userID: profile.id, initial: profile)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
         }
     }
 

@@ -21,14 +21,29 @@ enum RealtimeWatch {
         }
     }
 
+    /// A raw Postgres change plus the table it came from. Screens usually refetch, but DELETE events
+    /// need the old row id so removed drops can disappear before the refetch completes.
+    struct Event {
+        let table: String
+        let action: AnyAction
+
+        var deletedRecordID: UUID? {
+            guard case let .delete(action) = action else { return nil }
+            return try? action.decodeOldRecord(as: DeletedRecord.self, decoder: JSONDecoder()).id
+        }
+    }
+
     /// - Parameters:
     ///   - topic: A stable, unique channel name — include the user/drop id so channels don't collide.
     ///   - sources: Tables/filters to subscribe to. Every callback is registered *before* subscribe,
     ///     which the SDK requires.
+    ///   - onEvent: Invoked for every realtime event before `onChange`; use this for instant local
+    ///     reactions that can be derived directly from the payload, such as removing deleted drops.
     ///   - onChange: Invoked once right after connect (to reconcile) and again on every change event.
     static func run(
         topic: String,
         sources: [Source],
+        onEvent: (@MainActor (Event) async -> Void)? = nil,
         onChange: @escaping @MainActor () async -> Void
     ) async {
         let client = SupabaseClient.shared
@@ -40,13 +55,16 @@ enum RealtimeWatch {
         await client.removeChannel(client.channel(topic))
 
         let channel = client.channel(topic)
-        let streams = sources.map { source -> AsyncStream<AnyAction> in
+        let streams = sources.map { source -> (table: String, stream: AsyncStream<AnyAction>) in
+            let stream: AsyncStream<AnyAction>
             if let filter = source.filter {
-                return channel.postgresChange(
+                stream = channel.postgresChange(
                     AnyAction.self, schema: "public", table: source.table, filter: filter
                 )
+            } else {
+                stream = channel.postgresChange(AnyAction.self, schema: "public", table: source.table)
             }
-            return channel.postgresChange(AnyAction.self, schema: "public", table: source.table)
+            return (table: source.table, stream: stream)
         }
 
         // `subscribeWithError` throws if the channel can't join; on failure just bail — the screen
@@ -65,9 +83,12 @@ enum RealtimeWatch {
         // cancellation so the source streams end and `waitForAll` returns promptly.
         await withTaskCancellationHandler {
             await withTaskGroup(of: Void.self) { group in
-                for stream in streams {
+                for (table, stream) in streams {
                     group.addTask {
-                        for await _ in stream {
+                        for await action in stream {
+                            if let onEvent {
+                                await onEvent(Event(table: table, action: action))
+                            }
                             await onChange()
                         }
                     }
@@ -79,5 +100,9 @@ enum RealtimeWatch {
         }
 
         await client.removeChannel(channel)
+    }
+
+    private struct DeletedRecord: Decodable {
+        let id: UUID
     }
 }

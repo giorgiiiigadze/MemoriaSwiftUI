@@ -3,8 +3,7 @@ import Supabase
 import UIKit
 
 /// The Home tab (step 5 — drop feed): a vertically scrolling list of every drop rendered as a
-/// native `DropCard`. Native navigation header with the leading Liquid Glass bell/share pill and
-/// the centered "Memoria" wordmark.
+/// native `DropCard`. Native navigation header with the leading Liquid Glass bell/share pill.
 struct HomeView: View {
     @Environment(AppState.self) private var appState
 
@@ -140,11 +139,6 @@ struct HomeView: View {
                     .buttonBorderShape(.capsule)
                     .controlSize(.small)
                 }
-                ToolbarItem(placement: .principal) {
-                    Text("Memoria")
-                        .font(Typography.font(.xl, weight: .strong))
-                        .foregroundStyle(Colors.textPrimary)
-                }
             }
             // Native drop search, only attached once the toolbar button activates it — so the field
             // stays fully hidden until tapped. Detaching it on dismiss (rather than leaving it
@@ -198,9 +192,11 @@ struct HomeView: View {
             CameraView { image in await performUpload(image, to: drop) }
                 .ignoresSafeArea()
         }
-        // A drop card's creator profile, opened by tapping the card's identity header.
-        .fullScreenCover(item: $selectedProfile) { profile in
+        // A drop card's creator profile, opened as a native sheet so swipe-down dismissal follows the finger.
+        .sheet(item: $selectedProfile) { profile in
             UserProfileView(userID: profile.id, initial: profile)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
         }
     }
 
@@ -394,6 +390,7 @@ struct HomeView: View {
                 .init("drops"),
                 .init("drop_participants", filter: .eq("user_id", value: currentUserID.uuidString)),
             ],
+            onEvent: handleRealtimeEvent,
             onChange: { await load() }
         )
     }
@@ -404,6 +401,7 @@ struct HomeView: View {
         let previous = drops
         drops.removeAll { $0.id == drop.id }
         HomeDropsCache.store(drops)
+        appState.markDropRemoved(drop.id)
 
         Task {
             do {
@@ -412,8 +410,14 @@ struct HomeView: View {
                 drops = previous
                 HomeDropsCache.store(previous)
                 didDeleteFail = true
+                await load()
             }
         }
+    }
+
+    private func handleRealtimeEvent(_ event: RealtimeWatch.Event) async {
+        guard event.table == "drops", let id = event.deletedRecordID else { return }
+        appState.markDropRemoved(id)
     }
 
     /// Flip a drop's pinned state (creator-only), optimistically updating the feed + cache.

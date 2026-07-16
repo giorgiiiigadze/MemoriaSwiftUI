@@ -632,8 +632,14 @@ struct CalendarView: View {
                 .init("drops"),
                 .init("drop_participants", filter: .eq("user_id", value: currentUserID.uuidString)),
             ],
+            onEvent: handleRealtimeEvent,
             onChange: { await load() }
         )
+    }
+
+    private func handleRealtimeEvent(_ event: RealtimeWatch.Event) async {
+        guard event.table == "drops", let id = event.deletedRecordID else { return }
+        appState.markDropRemoved(id)
     }
 
     private func load() async {
